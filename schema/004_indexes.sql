@@ -1,0 +1,10 @@
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_project_id ON users(project_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_project_id ON equipment(project_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_status ON equipment(status);
+CREATE INDEX IF NOT EXISTS idx_project_contacts_project_id ON project_contacts(project_id);
+CREATE INDEX IF NOT EXISTS idx_garage_vehicles_status ON garage_vehicles(status);
+CREATE INDEX IF NOT EXISTS idx_garage_vehicles_stage ON garage_vehicles(stage);
+CREATE INDEX IF NOT EXISTS idx_insurance_claims_status ON insurance_claims(status);
+CREATE INDEX IF NOT EXISTS idx_garage_progress_vehicle_id ON garage_progress_logs(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_insurance_progress_claim_id ON insurance_progress_logs(claim_id);

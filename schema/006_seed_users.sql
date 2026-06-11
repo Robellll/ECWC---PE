@@ -1,0 +1,2 @@
+-- Demo users are seeded by scripts/migrate.js (bcrypt hashes generated at runtime).
+-- Run: npm run db:migrate
