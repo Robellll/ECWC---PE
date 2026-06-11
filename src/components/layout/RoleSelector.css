@@ -1,0 +1,274 @@
+/* Role Selector Dropdown Container */
+.role-dropdown-container {
+  position: relative;
+  font-family: var(--font-family);
+  display: inline-block;
+  z-index: 1000;
+}
+
+/* Trigger Button */
+.role-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+  outline: none;
+  min-width: 200px;
+  max-width: 250px;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.role-dropdown-trigger:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow-soft);
+}
+
+.role-dropdown-trigger:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow-soft);
+}
+
+.role-trigger-content {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  overflow: hidden;
+  text-align: left;
+}
+
+.role-trigger-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.role-trigger-text {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.role-trigger-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+}
+
+.role-trigger-val {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.role-chevron {
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.role-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* Dropdown Menu Panel */
+.role-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 320px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: roleDropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  max-height: 400px;
+}
+
+@keyframes roleDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Search Box Area */
+.role-search-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--border-color);
+  background-color: rgba(0, 0, 0, 0.015);
+}
+
+.role-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.role-search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.82rem;
+  color: var(--text-main);
+  width: 100%;
+}
+
+.role-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Options Scrollable Area */
+.role-options-list {
+  overflow-y: auto;
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.role-no-results {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 1rem 0;
+}
+
+/* Option List Item Button */
+.role-option-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background-color 0.15s ease;
+}
+
+.role-option-item:hover {
+  background-color: var(--bg-main);
+}
+
+.role-option-item.selected {
+  background-color: var(--accent-light);
+}
+
+/* Tree Connector Prefix Styling */
+.role-tree-prefix {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: -0.05em;
+  opacity: 0.6;
+  white-space: pre;
+  margin-right: 0.2rem;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* Icon Wrapper inside item */
+.role-item-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Info container for metadata */
+.role-item-info {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.role-item-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.role-item-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.role-item-desc {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 0.05rem;
+}
+
+.role-check-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Level-based Indent Adjustments (if tree prefix is not used) */
+.role-option-item.level-0 {
+  padding-left: 0.6rem;
+}
+
+/* Keep alignment neat depending on structure */
+.dark-theme .role-search-container {
+  background-color: rgba(255, 255, 255, 0.015);
+}
+
+/* Scrollbar customizations */
+.role-options-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.role-options-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.role-options-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.role-options-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
