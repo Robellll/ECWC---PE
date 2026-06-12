@@ -16,15 +16,9 @@ const STATUS_CONFIG = {
   Breakdown: { color: 'status-breakdown', icon: AlertTriangle, label: 'Breakdown' }
 };
 
-const PROJECTS_LIST = [
-  'Grand Ethiopian Renaissance Dam (GERD)',
-  'Awash-Kombolcha Highway',
-  'Adama-Awash Expressway',
-  'Koye Feche Housing Project',
-  'Bole Airport Expansion'
-];
+const UNASSIGNED = 'Idle / Unassigned';
 
-const EquipmentDetailDrawer = ({ equipment, onClose, onUpdate }) => {
+const EquipmentDetailDrawer = ({ equipment, projectOptions = [], onClose, onUpdate }) => {
   const { isEquipmentEditor: isEditor } = usePermissions();
 
   const [notes, setNotes] = useState(equipment.managerNotes || '');
@@ -131,12 +125,12 @@ const EquipmentDetailDrawer = ({ equipment, onClose, onUpdate }) => {
                       setDirty(true);
                     }}
                   >
-                    {PROJECTS_LIST.map((proj) => (
+                    {projectOptions.map((proj) => (
                       <option key={proj} value={proj}>
                         {proj}
                       </option>
                     ))}
-                    <option value="Idle / Unassigned">Idle / Unassigned</option>
+                    <option value={UNASSIGNED}>{UNASSIGNED}</option>
                   </select>
                 </div>
 

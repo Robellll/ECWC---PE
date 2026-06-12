@@ -46,7 +46,7 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              placeholder="superadmin@ecwc.gov.et"
+              placeholder="your.email@ecwc.gov.et"
             />
           </label>
           <label>
@@ -57,14 +57,13 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              placeholder="Demo@2026!"
+              placeholder="Enter your password"
             />
           </label>
           <button type="submit" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <p className="login-hint">Demo password for all roles: Demo@2026!</p>
       </div>
     </div>
   );

@@ -6,17 +6,12 @@ import {
   ChevronRight, Upload, Table, AlertCircle, X, Check, Clipboard
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useProjects } from '@/hooks/useProjects';
 import { apiFetch } from '@/lib/api-client';
 import EquipmentDetailDrawer from '@/components/equipment/EquipmentDetailDrawer';
 import './Equipment.css';
 
-const PROJECTS_LIST = [
-  'Grand Ethiopian Renaissance Dam (GERD)',
-  'Awash-Kombolcha Highway',
-  'Adama-Awash Expressway',
-  'Koye Feche Housing Project',
-  'Bole Airport Expansion'
-];
+const UNASSIGNED = 'Idle / Unassigned';
 
 const EQUIPMENT_TYPES = [
   'Excavator',
@@ -32,6 +27,7 @@ const EQUIPMENT_TYPES = [
 
 const Equipment = () => {
   const { isEquipmentEditor: isEditor } = usePermissions();
+  const { projects: projectOptions } = useProjects();
   const [equipments, setEquipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const loadEquipment = useCallback(async () => {
@@ -57,7 +53,7 @@ const Equipment = () => {
     code: '',
     name: '',
     type: 'Excavator',
-    project: 'Grand Ethiopian Renaissance Dam (GERD)',
+    project: UNASSIGNED,
     capacity: '',
     status: 'Operational',
     managerNotes: ''
@@ -118,7 +114,7 @@ const Equipment = () => {
     setShowAddModal(false);
     setNewEq({
       code: '', name: '', type: 'Excavator',
-      project: 'Grand Ethiopian Renaissance Dam (GERD)',
+      project: UNASSIGNED,
       capacity: '', status: 'Operational', managerNotes: '',
     });
     await loadEquipment();
@@ -149,7 +145,7 @@ const Equipment = () => {
       const code = parts[0] || '';
       const name = parts[1] || '';
       const type = parts[2] || 'Excavator';
-      const project = parts[3] || PROJECTS_LIST[0];
+      const project = parts[3] || projectOptions[0] || UNASSIGNED;
       const capacity = parts[4] || 'N/A';
       const status = parts[5] || 'Operational';
 
@@ -191,7 +187,7 @@ const Equipment = () => {
       code: `ECWC-EQ-${Math.floor(1000 + Math.random() * 9000)}`,
       name: '',
       type: 'Excavator',
-      project: PROJECTS_LIST[0],
+      project: projectOptions[0],
       capacity: 'N/A',
       status: 'Operational'
     };
@@ -299,7 +295,7 @@ const Equipment = () => {
             <Filter size={14} />
             <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
               <option value="All">All Projects</option>
-              {PROJECTS_LIST.map((proj) => (
+              {projectOptions.map((proj) => (
                 <option key={proj} value={proj}>
                   {proj}
                 </option>
@@ -495,7 +491,7 @@ const Equipment = () => {
                       value={newEq.project}
                       onChange={(e) => setNewEq({ ...newEq, project: e.target.value })}
                     >
-                      {PROJECTS_LIST.map((proj) => (
+                      {projectOptions.map((proj) => (
                         <option key={proj} value={proj}>
                           {proj}
                         </option>
@@ -548,7 +544,7 @@ const Equipment = () => {
                         <span className="badge-csv">CSV</span>
                       </div>
                       <pre>
-                        ECWC-EQ-8001, CAT 966H Loader, Loader, Grand Ethiopian Renaissance Dam (GERD), 4.2 m³, Operational{"\n"}
+                        ECWC-EQ-8001, CAT 966H Loader, Loader, Your Project Name, 4.2 m³, Operational{"\n"}
                         ECWC-EQ-8002, Volvo Dump Truck, Dump Truck, Awash-Kombolcha Highway, 15 m³, Idle{"\n"}
                         ECWC-EQ-8003, Komatsu D275 Dozer, Dozer, Adama-Awash Expressway, 320 HP, Under Maintenance
                       </pre>
@@ -647,7 +643,7 @@ const Equipment = () => {
                                   onChange={(e) => handleUpdateBulkCell(row.id, 'project', e.target.value)}
                                   className="grid-select"
                                 >
-                                  {PROJECTS_LIST.map((proj) => (
+                                  {projectOptions.map((proj) => (
                                     <option key={proj} value={proj}>
                                       {proj}
                                     </option>
@@ -722,6 +718,7 @@ const Equipment = () => {
       {selectedEquipment && (
         <EquipmentDetailDrawer
           equipment={equipments.find((e) => e.id === selectedEquipment.id) || selectedEquipment}
+          projectOptions={projectOptions}
           onClose={() => setSelectedEquipment(null)}
           onUpdate={handleEquipmentUpdate}
         />

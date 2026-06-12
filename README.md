@@ -6,11 +6,12 @@ Next.js App Router application with PostgreSQL (Neon), Auth.js login, and role-b
 
 ```bash
 npm install
-npm run db:migrate   # first time / reset database
+npm run db:migrate   # first time: create tables + user accounts
+npm run db:clear     # remove all operational data (keeps users)
 npm run dev          # http://localhost:3000
 ```
 
-Demo login: `superadmin@ecwc.gov.et` / `Demo@2026!` (see `scripts/migrate.js` for all roles).
+Sign in with your ECWC user email. Initial accounts are created by `npm run db:migrate` (see `scripts/migrate.js`).
 
 ## Project structure
 

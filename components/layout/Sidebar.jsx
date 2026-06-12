@@ -43,7 +43,6 @@ const Sidebar = () => {
     <aside className="sidebar">
       <div className="sidebar-logo">
         <img src="/logo.png.png" alt="ECWC Logo" className="logo-img" />
-        <span className="logo-text">Plant & Equip</span>
       </div>
 
       <nav className="sidebar-nav">

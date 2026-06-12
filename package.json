@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint .",
     "db:migrate": "node scripts/migrate.js",
+    "db:clear": "node scripts/clear-business-data.js",
     "db:verify": "node scripts/verify.js"
   },
   "dependencies": {
