@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Users, Wrench, ShieldAlert } from 'lucide-react';
+import CargoTruckIcon from '@/components/icons/CargoTruckIcon';
 import './Sidebar.css';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/managers', label: 'Contact Log', icon: Users },
-  { href: '/equipment', label: 'Equipment', iconSrc: '/equipment-dump-truck.png' },
+  { href: '/equipment', label: 'Equipment', icon: CargoTruckIcon },
   { href: '/garage', label: 'Central Garage', icon: Wrench },
   { href: '/insurance', label: 'Insurance', icon: ShieldAlert },
 ];
@@ -23,17 +24,13 @@ const Sidebar = () => {
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map(({ href, label, icon: Icon, iconSrc }) => (
+        {navItems.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
             className={pathname === href ? 'nav-item active' : 'nav-item'}
           >
-            {iconSrc ? (
-              <img src={iconSrc} alt="" className="nav-icon-img" aria-hidden="true" />
-            ) : (
-              <Icon size={20} />
-            )}
+            <Icon size={20} />
             <span>{label}</span>
           </Link>
         ))}
