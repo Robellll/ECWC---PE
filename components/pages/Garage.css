@@ -208,7 +208,14 @@
   color: var(--text-main);
 }
 
-/* Stage pill */
+/* Stage cell with workshop badge */
+.stage-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
 .stage-pill {
   display: inline-block;
   padding: 0.2rem 0.6rem;
@@ -219,6 +226,23 @@
   color: rgb(72, 150, 18);
   border: 1px solid rgba(117, 200, 38, 0.2);
   letter-spacing: 0.01em;
+}
+
+.workshop-badge {
+  display: inline-block;
+  max-width: 160px;
+  padding: 0.15rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  color: var(--workshop-color, #6b7280);
+  background: color-mix(in srgb, var(--workshop-color, #6b7280) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--workshop-color, #6b7280) 35%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Priority badges in table */

@@ -25,7 +25,23 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  CREATE TYPE garage_stage AS ENUM ('received', 'diagnosing', 'in_repair', 'testing', 'completed');
+  CREATE TYPE garage_stage AS ENUM ('received', 'under_maintenance', 'final_inspection', 'completed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE garage_workshop AS ENUM (
+    'auxiliary_equipment',
+    'electrical_electronics',
+    'electromechanical',
+    'engine',
+    'factory_equipment',
+    'heavy_machinery',
+    'heavy_vehicle',
+    'light_vehicle',
+    'service_wash_grease_tire',
+    'vehicle_body_painting'
+  );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 

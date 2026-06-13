@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X, Clock, User, AlertTriangle, CheckCircle2, Circle, MessageSquarePlus,
-  Save, Lock, FileText, Calendar, Flag, ArrowRight,
+  Save, Lock, FileText, Calendar, Flag, ArrowRight, Wrench, ClipboardCheck, UserCheck,
 } from 'lucide-react';
 import { GARAGE_STAGES } from '@/lib/constants';
+import { workshopLabel, workshopColor, isValidStaffName } from '@/lib/garage';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDuration } from '@/hooks/useDuration';
 import { apiFetch } from '@/lib/api-client';
@@ -59,12 +60,19 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
   const [notesDirty, setNotesDirty] = useState(false);
   const [logInput, setLogInput] = useState('');
   const [logFocus, setLogFocus] = useState(false);
+  const [assignedTechnician, setAssignedTechnician] = useState(vehicle.assignedTechnician || '');
+  const [finalInspectionOfficer, setFinalInspectionOfficer] = useState(vehicle.finalInspectionOfficer || '');
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState('');
   const drawerRef = useRef(null);
 
   useEffect(() => {
     setNotes(vehicle.managerNotes || '');
     setNotesDirty(false);
-  }, [vehicle.id, vehicle.managerNotes]);
+    setAssignedTechnician(vehicle.assignedTechnician || '');
+    setFinalInspectionOfficer(vehicle.finalInspectionOfficer || '');
+    setCompleteError('');
+  }, [vehicle.id, vehicle.managerNotes, vehicle.assignedTechnician, vehicle.finalInspectionOfficer]);
 
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -96,14 +104,48 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
     onUpdate(updated);
   };
 
+  const saveCompletionFields = async () => {
+    const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/completion-fields`, {
+      method: 'POST',
+      body: JSON.stringify({ assignedTechnician, finalInspectionOfficer }),
+    });
+    onUpdate(updated);
+    return updated;
+  };
+
   const handleToggleComplete = async () => {
+    setCompleteError('');
+    if (!isValidStaffName(assignedTechnician) || !isValidStaffName(finalInspectionOfficer)) {
+      setCompleteError('Assigned Technician and Final Inspection Officer are required before completion.');
+      return;
+    }
+    setCompleting(true);
+    try {
+      const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/toggle-complete`, {
+        method: 'POST',
+        body: JSON.stringify({ assignedTechnician, finalInspectionOfficer }),
+      });
+      onUpdate(updated);
+    } catch (err) {
+      setCompleteError(err.message || 'Could not complete vehicle.');
+    } finally {
+      setCompleting(false);
+    }
+  };
+
+  const handleReopen = async () => {
     const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/toggle-complete`, { method: 'POST' });
     onUpdate(updated);
   };
 
   const currentStageIdx = GARAGE_STAGES.indexOf(vehicle.stage);
-  const canAdvance = isManager && currentStageIdx < GARAGE_STAGES.length - 1;
+  const canAdvance = isManager && vehicle.status !== 'Completed' && currentStageIdx < GARAGE_STAGES.length - 2;
+  const atFinalInspection = vehicle.stage === 'Final Inspection' && vehicle.status !== 'Completed';
+  const canComplete = isManager && atFinalInspection
+    && isValidStaffName(assignedTechnician)
+    && isValidStaffName(finalInspectionOfficer);
   const pConfig = PRIORITY_CONFIG[vehicle.priority] || PRIORITY_CONFIG.Normal;
+  const workshopStyle = vehicle.workshop ? { '--workshop-color': workshopColor(vehicle.workshop) } : {};
 
   return (
     <>
@@ -114,6 +156,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
             <span className={`priority-badge ${pConfig.color}`}>{pConfig.icon} {vehicle.priority}</span>
             <h2 className="drawer-plate">{vehicle.plate}</h2>
             <p className="drawer-model">{vehicle.model}</p>
+            {vehicle.sroNumber && <p className="drawer-sro">SRO: {vehicle.sroNumber}</p>}
           </div>
           <div className="drawer-header-right">
             <span className={`status-badge ${vehicle.status === 'Completed' ? 'success' : 'warning'}`}>{vehicle.status}</span>
@@ -132,13 +175,17 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                 </span>
               </div>
             </div>
-            <div className="detail-info-item">
-              <User size={14} />
-              <div>
-                <span className="detail-info-label">Technician</span>
-                <span className="detail-info-value">{vehicle.technician}</span>
+            {vehicle.workshop && (
+              <div className="detail-info-item">
+                <Wrench size={14} />
+                <div>
+                  <span className="detail-info-label">Workshop</span>
+                  <span className="workshop-badge drawer-workshop-badge" style={workshopStyle}>
+                    {workshopLabel(vehicle.workshop)}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
             <div className="detail-info-item detail-info-full">
               <Clock size={14} />
               <div>
@@ -146,6 +193,52 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                 <DurationLive startTime={vehicle.registeredDate} endTime={vehicle.completedDate} />
               </div>
             </div>
+          </div>
+
+          <div className="detail-section accountability-section">
+            <div className="detail-section-title"><UserCheck size={15} />Staff Accountability</div>
+            <div className="accountability-grid">
+              <div className="accountability-item">
+                <span className="accountability-label">Receiving Inspector</span>
+                <span className="accountability-value">{vehicle.receivingInspector || '—'}</span>
+              </div>
+              <div className="accountability-item">
+                <span className="accountability-label">Assigned Technician</span>
+                {atFinalInspection && isManager ? (
+                  <input
+                    className="completion-input"
+                    type="text"
+                    value={assignedTechnician}
+                    onChange={(e) => setAssignedTechnician(e.target.value)}
+                    onBlur={saveCompletionFields}
+                    placeholder="Technician who performed the work"
+                  />
+                ) : (
+                  <span className="accountability-value">{vehicle.assignedTechnician || '—'}</span>
+                )}
+              </div>
+              <div className="accountability-item">
+                <span className="accountability-label">Final Inspection Officer</span>
+                {atFinalInspection && isManager ? (
+                  <input
+                    className="completion-input"
+                    type="text"
+                    value={finalInspectionOfficer}
+                    onChange={(e) => setFinalInspectionOfficer(e.target.value)}
+                    onBlur={saveCompletionFields}
+                    placeholder="Officer who verifies work quality"
+                  />
+                ) : (
+                  <span className="accountability-value">{vehicle.finalInspectionOfficer || '—'}</span>
+                )}
+              </div>
+            </div>
+            {atFinalInspection && isManager && (
+              <p className="completion-hint">
+                <ClipboardCheck size={13} />
+                Assign the technician and final inspection officer before marking this job complete.
+              </p>
+            )}
           </div>
 
           <div className="detail-section">
@@ -165,13 +258,21 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                 <ArrowRight size={15} />Advance to &quot;{GARAGE_STAGES[currentStageIdx + 1]}&quot;
               </button>
             )}
-            {isManager && vehicle.status !== 'Completed' && vehicle.stage === 'Testing' && (
-              <button className="complete-btn" onClick={() => { handleToggleComplete(); onClose(); }}>
-                <CheckCircle2 size={15} />Mark as Completed
-              </button>
+            {isManager && atFinalInspection && (
+              <>
+                {completeError && <p className="completion-error">{completeError}</p>}
+                <button
+                  className="complete-btn"
+                  onClick={handleToggleComplete}
+                  disabled={!canComplete || completing}
+                  title={!canComplete ? 'Enter Assigned Technician and Final Inspection Officer first' : ''}
+                >
+                  <CheckCircle2 size={15} />Mark as Completed
+                </button>
+              </>
             )}
             {isManager && vehicle.status === 'Completed' && (
-              <button className="reopen-btn" onClick={handleToggleComplete}>Reopen / Return to In Repair</button>
+              <button className="reopen-btn" onClick={handleReopen}>Reopen / Return to Under Maintenance</button>
             )}
           </div>
 
