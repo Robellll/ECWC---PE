@@ -1,16 +1,18 @@
 import { sql } from '@/lib/db.js';
 import { requirePermission, jsonOk, jsonError } from '@/lib/api-helpers.js';
 import { mapGarageVehicle } from '@/lib/mappers.js';
-import { isValidStaffName } from '@/lib/garage.js';
+import { isValidStaffName, isValidMaintenanceType } from '@/lib/garage.js';
+import { createGarageCompletionNotifications } from '@/lib/notifications.js';
 import { z } from 'zod';
 
 const completeSchema = z.object({
   assignedTechnician: z.string().optional(),
   finalInspectionOfficer: z.string().optional(),
+  maintenanceType: z.enum(['major', 'minor']).optional(),
 });
 
 export async function POST(request, { params }) {
-  const { error } = await requirePermission((p) => p.isGarageEditor);
+  const { error, session } = await requirePermission((p) => p.isGarageEditor);
   if (error) return error;
   const { id } = await params;
   const existing = await sql`SELECT * FROM garage_vehicles WHERE id = ${id}`;
@@ -45,18 +47,25 @@ export async function POST(request, { params }) {
 
   const assignedTechnician = (parsed.data.assignedTechnician || existing[0].assigned_technician || '').trim();
   const finalInspectionOfficer = (parsed.data.finalInspectionOfficer || existing[0].final_inspection_officer || '').trim();
+  const maintenanceType = parsed.data.maintenanceType || existing[0].maintenance_type;
 
   if (!isValidStaffName(assignedTechnician)) {
-    return jsonError('Assigned Technician is required before completion', 400);
+    return jsonError('Assigned Mechanic is required before completion', 400);
   }
   if (!isValidStaffName(finalInspectionOfficer)) {
     return jsonError('Final Inspection Officer is required before completion', 400);
   }
+  if (!isValidMaintenanceType(maintenanceType)) {
+    return jsonError('Maintenance type (Major or Minor) is required before completion', 400);
+  }
+
+  const typeLabel = maintenanceType === 'major' ? 'Major' : 'Minor';
 
   const rows = await sql`
     UPDATE garage_vehicles SET
       assigned_technician = ${assignedTechnician},
       final_inspection_officer = ${finalInspectionOfficer},
+      maintenance_type = ${maintenanceType}::garage_maintenance_type,
       status = 'completed'::garage_status,
       stage = 'completed'::garage_stage,
       completed_at = ${new Date().toISOString()},
@@ -67,9 +76,10 @@ export async function POST(request, { params }) {
     INSERT INTO garage_progress_logs (vehicle_id, text)
     VALUES (
       ${id},
-      ${`Maintenance completed by ${assignedTechnician}. Final inspection by ${finalInspectionOfficer}. Vehicle released.`}
+      ${`${typeLabel} maintenance completed by ${assignedTechnician}. Final inspection by ${finalInspectionOfficer}. Vehicle released.`}
     )
   `;
+  await createGarageCompletionNotifications(rows[0], session.user.id);
   const logs = await sql`SELECT * FROM garage_progress_logs WHERE vehicle_id = ${id} ORDER BY created_at`;
   return jsonOk(mapGarageVehicle(rows[0], logs));
 }

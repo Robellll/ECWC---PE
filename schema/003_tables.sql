@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS garage_vehicles (
   receiving_inspector TEXT NOT NULL DEFAULT '',
   assigned_technician TEXT NOT NULL DEFAULT '',
   final_inspection_officer TEXT NOT NULL DEFAULT '',
+  maintenance_type garage_maintenance_type,
   priority priority_level NOT NULL DEFAULT 'normal',
   stage garage_stage NOT NULL DEFAULT 'received',
   status garage_status NOT NULL DEFAULT 'in_progress',

@@ -6,6 +6,7 @@ import { z } from 'zod';
 const updateSchema = z.object({
   assignedTechnician: z.string().optional(),
   finalInspectionOfficer: z.string().optional(),
+  maintenanceType: z.enum(['major', 'minor']).optional().nullable(),
 });
 
 export async function POST(request, { params }) {
@@ -30,11 +31,16 @@ export async function POST(request, { params }) {
     parsed.data.finalInspectionOfficer !== undefined
       ? parsed.data.finalInspectionOfficer.trim()
       : existing[0].final_inspection_officer;
+  const maintenanceType =
+    parsed.data.maintenanceType !== undefined
+      ? parsed.data.maintenanceType
+      : existing[0].maintenance_type;
 
   const rows = await sql`
     UPDATE garage_vehicles SET
       assigned_technician = ${assignedTechnician},
       final_inspection_officer = ${finalInspectionOfficer},
+      maintenance_type = ${maintenanceType},
       updated_at = NOW()
     WHERE id = ${id} RETURNING *
   `;

@@ -1,15 +1,81 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Plus, Search, Filter, Trash2, Clock, ChevronRight, Eye } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Plus, Search, Filter, Trash2, Clock, ChevronRight, Eye, ArrowUp, ArrowDown } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDuration } from '@/hooks/useDuration';
 import { apiFetch } from '@/lib/api-client';
 import { GARAGE_WORKSHOPS } from '@/lib/garage';
+import { sortTableData, nextSortDirection } from '@/lib/table-sort';
 import VehicleDetailDrawer from '@/components/garage/VehicleDetailDrawer';
 import './Garage.css';
 
 const PRIORITY_ORDER = { Critical: 0, High: 1, Normal: 2, Low: 3 };
+
+const TABLE_COLUMNS = [
+  { key: 'priority', label: 'Priority', type: 'number' },
+  { key: 'plate', label: 'Plate Number', type: 'text' },
+  { key: 'model', label: 'Vehicle / Equipment', type: 'text' },
+  { key: 'registered', label: 'Registered', type: 'date' },
+  { key: 'duration', label: 'Duration', type: 'number' },
+  { key: 'status', label: 'Status', type: 'text' },
+  { key: 'receivingInspector', label: 'Receiving Inspector', type: 'text' },
+];
+
+function getDurationMs(vehicle) {
+  const start = new Date(vehicle.registeredDate).getTime();
+  if (Number.isNaN(start)) return NaN;
+  const end = vehicle.completedDate ? new Date(vehicle.completedDate).getTime() : Date.now();
+  return end - start;
+}
+
+function getSortValue(vehicle, column) {
+  switch (column) {
+    case 'priority':
+      return PRIORITY_ORDER[vehicle.priority] ?? 99;
+    case 'plate':
+      return (vehicle.plate || '').toLowerCase();
+    case 'model':
+      return (vehicle.model || '').toLowerCase();
+    case 'registered':
+      return vehicle.registeredDate;
+    case 'duration':
+      return getDurationMs(vehicle);
+    case 'status':
+      return (vehicle.status || '').toLowerCase();
+    case 'receivingInspector':
+      return (vehicle.receivingInspector || '').toLowerCase();
+    default:
+      return '';
+  }
+}
+
+const SortableHeader = ({ column, label, sortColumn, sortDirection, onSort }) => {
+  const isActive = sortColumn === column.key;
+  return (
+    <th scope="col" className={isActive ? 'th-sortable th-sorted' : 'th-sortable'}>
+      <button
+        type="button"
+        className="th-sort-btn"
+        onClick={() => onSort(column.key)}
+        aria-sort={isActive ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        <span className="th-sort-label">{label}</span>
+        <span className={`th-sort-icons ${isActive ? 'active' : ''}`} aria-hidden="true">
+          {isActive ? (
+            sortDirection === 'asc' ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />
+          ) : (
+            <>
+              <ArrowUp size={10} className="th-sort-icon-muted" strokeWidth={2} />
+              <ArrowDown size={10} className="th-sort-icon-muted" strokeWidth={2} />
+            </>
+          )}
+        </span>
+      </button>
+    </th>
+  );
+};
 
 const DurationCell = ({ startTime, endTime }) => {
   const duration = useDuration(startTime, endTime);
@@ -31,14 +97,20 @@ const emptyForm = () => ({
 });
 
 const CentralGarage = () => {
+  const searchParams = useSearchParams();
+  const vehicleIdParam = searchParams.get('vehicle');
   const { isGarageEditor: isManager } = usePermissions();
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [maintenanceTypeFilter, setMaintenanceTypeFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [newVehicle, setNewVehicle] = useState(emptyForm);
+  const [sortColumn, setSortColumn] = useState('registered');
+  const [sortDirection, setSortDirection] = useState('desc');
+  const [sortAnimating, setSortAnimating] = useState(false);
 
   const loadVehicles = useCallback(async () => {
     const data = await apiFetch('/api/garage-vehicles');
@@ -48,11 +120,22 @@ const CentralGarage = () => {
 
   useEffect(() => { loadVehicles(); }, [loadVehicles]);
 
+  useEffect(() => {
+    if (!vehicleIdParam || loading) return;
+    const match = vehicles.find((v) => v.id === vehicleIdParam);
+    if (match) setSelectedVehicle(match);
+  }, [vehicleIdParam, loading, vehicles]);
+
   const drawerVehicle = vehicles.find((v) => v.id === selectedVehicle?.id) || selectedVehicle;
 
-  const totalRegistered = vehicles.length;
-  const inProgress = vehicles.filter((v) => v.status === 'In Progress').length;
-  const completed = vehicles.filter((v) => v.status === 'Completed').length;
+  const typeFilteredVehicles = useMemo(() => {
+    if (maintenanceTypeFilter === 'all') return vehicles;
+    return vehicles.filter((v) => v.maintenanceType === maintenanceTypeFilter);
+  }, [vehicles, maintenanceTypeFilter]);
+
+  const totalRegistered = typeFilteredVehicles.length;
+  const inProgress = typeFilteredVehicles.filter((v) => v.status === 'In Progress').length;
+  const completed = typeFilteredVehicles.filter((v) => v.status === 'Completed').length;
   const completionRate = totalRegistered === 0 ? 0 : Math.round((completed / totalRegistered) * 100);
 
   const handleDelete = async (e, id) => {
@@ -80,18 +163,43 @@ const CentralGarage = () => {
     setSelectedVehicle(updated);
   };
 
+  const handleSort = useCallback((columnKey) => {
+    setSortDirection((prev) => nextSortDirection(sortColumn, columnKey, prev));
+    setSortColumn(columnKey);
+    setSortAnimating(true);
+  }, [sortColumn]);
+
+  useEffect(() => {
+    if (!sortAnimating) return undefined;
+    const timer = setTimeout(() => setSortAnimating(false), 220);
+    return () => clearTimeout(timer);
+  }, [sortAnimating, sortColumn, sortDirection]);
+
+  const columnTypeMap = useMemo(
+    () => Object.fromEntries(TABLE_COLUMNS.map((c) => [c.key, c.type])),
+    [],
+  );
+
   const filteredVehicles = useMemo(() => {
-    return vehicles
-      .filter((v) => {
-        const matchSearch =
-          v.plate.toLowerCase().includes(search.toLowerCase()) ||
-          v.model.toLowerCase().includes(search.toLowerCase()) ||
-          (v.sroNumber || '').toLowerCase().includes(search.toLowerCase());
-        const matchStatus = statusFilter === 'All' || v.status === statusFilter;
-        return matchSearch && matchStatus;
-      })
-      .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
-  }, [vehicles, search, statusFilter]);
+    const filtered = vehicles.filter((v) => {
+      const matchSearch =
+        v.plate.toLowerCase().includes(search.toLowerCase()) ||
+        v.model.toLowerCase().includes(search.toLowerCase()) ||
+        (v.sroNumber || '').toLowerCase().includes(search.toLowerCase());
+      const matchStatus = statusFilter === 'All' || v.status === statusFilter;
+      const matchType =
+        maintenanceTypeFilter === 'all' ||
+        v.maintenanceType === maintenanceTypeFilter;
+      return matchSearch && matchStatus && matchType;
+    });
+
+    return sortTableData(filtered, {
+      column: sortColumn,
+      direction: sortDirection,
+      type: columnTypeMap[sortColumn],
+      getValue: getSortValue,
+    });
+  }, [vehicles, search, statusFilter, maintenanceTypeFilter, sortColumn, sortDirection, columnTypeMap]);
 
   const priorityClass = (p) => {
     const map = { Low: 'priority-low', Normal: 'priority-normal', High: 'priority-high', Critical: 'priority-critical' };
@@ -114,6 +222,33 @@ const CentralGarage = () => {
             <Plus size={16} /> Register Vehicle
           </button>
         )}
+      </div>
+
+      <div className="maintenance-type-filters">
+        <span className="maintenance-type-label">Maintenance Type</span>
+        <div className="maintenance-type-toggle" role="group" aria-label="Filter by maintenance type">
+          <button
+            type="button"
+            className={`type-filter-btn ${maintenanceTypeFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setMaintenanceTypeFilter('all')}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className={`type-filter-btn type-major ${maintenanceTypeFilter === 'major' ? 'active' : ''}`}
+            onClick={() => setMaintenanceTypeFilter('major')}
+          >
+            Major
+          </button>
+          <button
+            type="button"
+            className={`type-filter-btn type-minor ${maintenanceTypeFilter === 'minor' ? 'active' : ''}`}
+            onClick={() => setMaintenanceTypeFilter('minor')}
+          >
+            Minor
+          </button>
+        </div>
       </div>
 
       <div className="garage-summary">
@@ -156,20 +291,23 @@ const CentralGarage = () => {
       </div>
 
       <div className="table-wrapper">
-        <table className="garage-table">
+        <table className="garage-table garage-table-sortable">
           <thead>
             <tr>
-              <th>Priority</th>
-              <th>Plate Number</th>
-              <th>Vehicle / Equipment</th>
-              <th>Registered</th>
-              <th>Duration</th>
-              <th>Status</th>
-              <th>Receiving Inspector</th>
-              <th></th>
+              {TABLE_COLUMNS.map((col) => (
+                <SortableHeader
+                  key={col.key}
+                  column={col}
+                  label={col.label}
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              ))}
+              <th scope="col" className="th-actions" aria-label="Actions" />
             </tr>
           </thead>
-          <tbody>
+          <tbody className={sortAnimating ? 'tbody-sorting' : ''}>
             {filteredVehicles.length === 0 ? (
               <tr>
                 <td colSpan="8" className="text-center empty-row">

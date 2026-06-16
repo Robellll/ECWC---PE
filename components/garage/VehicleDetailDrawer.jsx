@@ -6,7 +6,7 @@ import {
   Save, Lock, FileText, Calendar, Flag, ArrowRight, Wrench, ClipboardCheck, UserCheck,
 } from 'lucide-react';
 import { GARAGE_STAGES } from '@/lib/constants';
-import { workshopLabel, workshopColor, isValidStaffName } from '@/lib/garage';
+import { workshopLabel, workshopColor, isValidStaffName, isValidMaintenanceType, maintenanceTypeLabel } from '@/lib/garage';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDuration } from '@/hooks/useDuration';
 import { apiFetch } from '@/lib/api-client';
@@ -62,6 +62,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
   const [logFocus, setLogFocus] = useState(false);
   const [assignedTechnician, setAssignedTechnician] = useState(vehicle.assignedTechnician || '');
   const [finalInspectionOfficer, setFinalInspectionOfficer] = useState(vehicle.finalInspectionOfficer || '');
+  const [maintenanceType, setMaintenanceType] = useState(vehicle.maintenanceType || '');
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState('');
   const drawerRef = useRef(null);
@@ -71,8 +72,9 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
     setNotesDirty(false);
     setAssignedTechnician(vehicle.assignedTechnician || '');
     setFinalInspectionOfficer(vehicle.finalInspectionOfficer || '');
+    setMaintenanceType(vehicle.maintenanceType || '');
     setCompleteError('');
-  }, [vehicle.id, vehicle.managerNotes, vehicle.assignedTechnician, vehicle.finalInspectionOfficer]);
+  }, [vehicle.id, vehicle.managerNotes, vehicle.assignedTechnician, vehicle.finalInspectionOfficer, vehicle.maintenanceType]);
 
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -104,10 +106,16 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
     onUpdate(updated);
   };
 
-  const saveCompletionFields = async () => {
+  const saveCompletionFields = async (overrides = {}) => {
+    const payload = {
+      assignedTechnician,
+      finalInspectionOfficer,
+      maintenanceType: maintenanceType || null,
+      ...overrides,
+    };
     const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/completion-fields`, {
       method: 'POST',
-      body: JSON.stringify({ assignedTechnician, finalInspectionOfficer }),
+      body: JSON.stringify(payload),
     });
     onUpdate(updated);
     return updated;
@@ -116,14 +124,18 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
   const handleToggleComplete = async () => {
     setCompleteError('');
     if (!isValidStaffName(assignedTechnician) || !isValidStaffName(finalInspectionOfficer)) {
-      setCompleteError('Assigned Technician and Final Inspection Officer are required before completion.');
+      setCompleteError('Assigned Mechanic and Final Inspection Officer are required before completion.');
+      return;
+    }
+    if (!isValidMaintenanceType(maintenanceType)) {
+      setCompleteError('Maintenance type (Major or Minor) is required before completion.');
       return;
     }
     setCompleting(true);
     try {
       const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/toggle-complete`, {
         method: 'POST',
-        body: JSON.stringify({ assignedTechnician, finalInspectionOfficer }),
+        body: JSON.stringify({ assignedTechnician, finalInspectionOfficer, maintenanceType }),
       });
       onUpdate(updated);
     } catch (err) {
@@ -143,7 +155,8 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
   const atFinalInspection = vehicle.stage === 'Final Inspection' && vehicle.status !== 'Completed';
   const canComplete = isManager && atFinalInspection
     && isValidStaffName(assignedTechnician)
-    && isValidStaffName(finalInspectionOfficer);
+    && isValidStaffName(finalInspectionOfficer)
+    && isValidMaintenanceType(maintenanceType);
   const pConfig = PRIORITY_CONFIG[vehicle.priority] || PRIORITY_CONFIG.Normal;
   const workshopStyle = vehicle.workshop ? { '--workshop-color': workshopColor(vehicle.workshop) } : {};
 
@@ -203,7 +216,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                 <span className="accountability-value">{vehicle.receivingInspector || '—'}</span>
               </div>
               <div className="accountability-item">
-                <span className="accountability-label">Assigned Technician</span>
+                <span className="accountability-label">Assigned Mechanic</span>
                 {atFinalInspection && isManager ? (
                   <input
                     className="completion-input"
@@ -211,7 +224,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                     value={assignedTechnician}
                     onChange={(e) => setAssignedTechnician(e.target.value)}
                     onBlur={saveCompletionFields}
-                    placeholder="Technician who performed the work"
+                    placeholder="Mechanic who performed the work"
                   />
                 ) : (
                   <span className="accountability-value">{vehicle.assignedTechnician || '—'}</span>
@@ -232,11 +245,46 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                   <span className="accountability-value">{vehicle.finalInspectionOfficer || '—'}</span>
                 )}
               </div>
+              <div className="accountability-item">
+                <span className="accountability-label">Maintenance Type</span>
+                {atFinalInspection && isManager ? (
+                  <div className="maintenance-type-choice" role="radiogroup" aria-label="Maintenance type">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={maintenanceType === 'major'}
+                      className={`type-choice-btn type-major ${maintenanceType === 'major' ? 'selected' : ''}`}
+                      onClick={() => {
+                        setMaintenanceType('major');
+                        saveCompletionFields({ maintenanceType: 'major' });
+                      }}
+                    >
+                      Major
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={maintenanceType === 'minor'}
+                      className={`type-choice-btn type-minor ${maintenanceType === 'minor' ? 'selected' : ''}`}
+                      onClick={() => {
+                        setMaintenanceType('minor');
+                        saveCompletionFields({ maintenanceType: 'minor' });
+                      }}
+                    >
+                      Minor
+                    </button>
+                  </div>
+                ) : (
+                  <span className={`maintenance-type-badge ${vehicle.maintenanceType || 'unset'}`}>
+                    {maintenanceTypeLabel(vehicle.maintenanceType)}
+                  </span>
+                )}
+              </div>
             </div>
             {atFinalInspection && isManager && (
               <p className="completion-hint">
                 <ClipboardCheck size={13} />
-                Assign the technician and final inspection officer before marking this job complete.
+                Enter assigned mechanic, final inspection officer, and maintenance type before completing.
               </p>
             )}
           </div>
@@ -265,7 +313,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                   className="complete-btn"
                   onClick={handleToggleComplete}
                   disabled={!canComplete || completing}
-                  title={!canComplete ? 'Enter Assigned Technician and Final Inspection Officer first' : ''}
+                  title={!canComplete ? 'Enter Assigned Mechanic, Final Inspection Officer, and Maintenance Type first' : ''}
                 >
                   <CheckCircle2 size={15} />Mark as Completed
                 </button>

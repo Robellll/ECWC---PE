@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { useStore } from '@/store/useStore';
-import { Moon, Sun, User, Bell, LogOut } from 'lucide-react';
+import { Moon, Sun, User, LogOut } from 'lucide-react';
+import NotificationBell from './NotificationBell';
 import './Header.css';
 
 const Header = () => {
@@ -45,9 +46,7 @@ const Header = () => {
           {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
         </button>
 
-        <button className="icon-btn" type="button" aria-label="Notifications">
-          <Bell size={20} />
-        </button>
+        <NotificationBell />
 
         <div className="user-profile">
           <div className="avatar">

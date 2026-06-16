@@ -46,6 +46,11 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
+  CREATE TYPE garage_maintenance_type AS ENUM ('major', 'minor');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
   CREATE TYPE garage_status AS ENUM ('in_progress', 'completed');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
