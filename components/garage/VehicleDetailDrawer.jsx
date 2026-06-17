@@ -110,7 +110,6 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
     const payload = {
       assignedTechnician,
       finalInspectionOfficer,
-      maintenanceType: maintenanceType || null,
       ...overrides,
     };
     const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/completion-fields`, {
@@ -119,6 +118,15 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
     });
     onUpdate(updated);
     return updated;
+  };
+
+  const saveMaintenanceType = async (type) => {
+    setMaintenanceType(type);
+    const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/maintenance-type`, {
+      method: 'POST',
+      body: JSON.stringify({ maintenanceType: type }),
+    });
+    onUpdate(updated);
   };
 
   const handleToggleComplete = async () => {
@@ -199,6 +207,38 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                 </div>
               </div>
             )}
+            <div className="detail-info-item">
+              <Flag size={14} />
+              <div>
+                <span className="detail-info-label">Maintenance Type</span>
+                {isManager ? (
+                  <div className="maintenance-type-choice" role="radiogroup" aria-label="Maintenance type">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={maintenanceType === 'major'}
+                      className={`type-choice-btn type-major ${maintenanceType === 'major' ? 'selected' : ''}`}
+                      onClick={() => saveMaintenanceType('major')}
+                    >
+                      Major
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={maintenanceType === 'minor'}
+                      className={`type-choice-btn type-minor ${maintenanceType === 'minor' ? 'selected' : ''}`}
+                      onClick={() => saveMaintenanceType('minor')}
+                    >
+                      Minor
+                    </button>
+                  </div>
+                ) : (
+                  <span className={`maintenance-type-badge ${vehicle.maintenanceType || 'unset'}`}>
+                    {maintenanceTypeLabel(vehicle.maintenanceType)}
+                  </span>
+                )}
+              </div>
+            </div>
             <div className="detail-info-item detail-info-full">
               <Clock size={14} />
               <div>
@@ -245,46 +285,11 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                   <span className="accountability-value">{vehicle.finalInspectionOfficer || '—'}</span>
                 )}
               </div>
-              <div className="accountability-item">
-                <span className="accountability-label">Maintenance Type</span>
-                {atFinalInspection && isManager ? (
-                  <div className="maintenance-type-choice" role="radiogroup" aria-label="Maintenance type">
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={maintenanceType === 'major'}
-                      className={`type-choice-btn type-major ${maintenanceType === 'major' ? 'selected' : ''}`}
-                      onClick={() => {
-                        setMaintenanceType('major');
-                        saveCompletionFields({ maintenanceType: 'major' });
-                      }}
-                    >
-                      Major
-                    </button>
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={maintenanceType === 'minor'}
-                      className={`type-choice-btn type-minor ${maintenanceType === 'minor' ? 'selected' : ''}`}
-                      onClick={() => {
-                        setMaintenanceType('minor');
-                        saveCompletionFields({ maintenanceType: 'minor' });
-                      }}
-                    >
-                      Minor
-                    </button>
-                  </div>
-                ) : (
-                  <span className={`maintenance-type-badge ${vehicle.maintenanceType || 'unset'}`}>
-                    {maintenanceTypeLabel(vehicle.maintenanceType)}
-                  </span>
-                )}
-              </div>
             </div>
             {atFinalInspection && isManager && (
               <p className="completion-hint">
                 <ClipboardCheck size={13} />
-                Enter assigned mechanic, final inspection officer, and maintenance type before completing.
+                Enter assigned mechanic and final inspection officer before completing.
               </p>
             )}
           </div>
@@ -313,7 +318,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                   className="complete-btn"
                   onClick={handleToggleComplete}
                   disabled={!canComplete || completing}
-                  title={!canComplete ? 'Enter Assigned Mechanic, Final Inspection Officer, and Maintenance Type first' : ''}
+                  title={!canComplete ? 'Enter Assigned Mechanic and Final Inspection Officer first' : ''}
                 >
                   <CheckCircle2 size={15} />Mark as Completed
                 </button>

@@ -8,7 +8,9 @@ import { useDuration } from '@/hooks/useDuration';
 import { apiFetch } from '@/lib/api-client';
 import { GARAGE_WORKSHOPS } from '@/lib/garage';
 import { sortTableData, nextSortDirection } from '@/lib/table-sort';
+import { isCompletedInRange, isRangeComplete, formatRangeLabel } from '@/lib/date-range';
 import VehicleDetailDrawer from '@/components/garage/VehicleDetailDrawer';
+import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import './Garage.css';
 
 const PRIORITY_ORDER = { Critical: 0, High: 1, Normal: 2, Low: 3 };
@@ -93,6 +95,7 @@ const emptyForm = () => ({
   reportedIssue: '',
   workshop: GARAGE_WORKSHOPS[0].value,
   receivingInspector: '',
+  maintenanceType: 'major',
   priority: 'Normal',
 });
 
@@ -105,6 +108,7 @@ const CentralGarage = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [maintenanceTypeFilter, setMaintenanceTypeFilter] = useState('all');
+  const [dateRange, setDateRange] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [newVehicle, setNewVehicle] = useState(emptyForm);
@@ -128,15 +132,38 @@ const CentralGarage = () => {
 
   const drawerVehicle = vehicles.find((v) => v.id === selectedVehicle?.id) || selectedVehicle;
 
+  const rangeActive = isRangeComplete(dateRange);
+
+  const completedInPeriod = useMemo(() => {
+    if (!rangeActive) return [];
+    return vehicles.filter((v) => isCompletedInRange(v, dateRange));
+  }, [vehicles, dateRange, rangeActive]);
+
   const typeFilteredVehicles = useMemo(() => {
-    if (maintenanceTypeFilter === 'all') return vehicles;
-    return vehicles.filter((v) => v.maintenanceType === maintenanceTypeFilter);
-  }, [vehicles, maintenanceTypeFilter]);
+    let list = vehicles;
+    if (maintenanceTypeFilter !== 'all') {
+      list = list.filter((v) => v.maintenanceType === maintenanceTypeFilter);
+    }
+    if (rangeActive) {
+      list = list.filter((v) => isCompletedInRange(v, dateRange));
+    }
+    return list;
+  }, [vehicles, maintenanceTypeFilter, dateRange, rangeActive]);
 
   const totalRegistered = typeFilteredVehicles.length;
-  const inProgress = typeFilteredVehicles.filter((v) => v.status === 'In Progress').length;
-  const completed = typeFilteredVehicles.filter((v) => v.status === 'Completed').length;
+  const inProgress = rangeActive
+    ? 0
+    : typeFilteredVehicles.filter((v) => v.status === 'In Progress').length;
+  const completed = rangeActive
+    ? totalRegistered
+    : typeFilteredVehicles.filter((v) => v.status === 'Completed').length;
   const completionRate = totalRegistered === 0 ? 0 : Math.round((completed / totalRegistered) * 100);
+  const majorInPeriod = rangeActive
+    ? completedInPeriod.filter((v) => v.maintenanceType === 'major').length
+    : null;
+  const minorInPeriod = rangeActive
+    ? completedInPeriod.filter((v) => v.maintenanceType === 'minor').length
+    : null;
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
@@ -190,7 +217,8 @@ const CentralGarage = () => {
       const matchType =
         maintenanceTypeFilter === 'all' ||
         v.maintenanceType === maintenanceTypeFilter;
-      return matchSearch && matchStatus && matchType;
+      const matchRange = !rangeActive || isCompletedInRange(v, dateRange);
+      return matchSearch && matchStatus && matchType && matchRange;
     });
 
     return sortTableData(filtered, {
@@ -199,7 +227,7 @@ const CentralGarage = () => {
       type: columnTypeMap[sortColumn],
       getValue: getSortValue,
     });
-  }, [vehicles, search, statusFilter, maintenanceTypeFilter, sortColumn, sortDirection, columnTypeMap]);
+  }, [vehicles, search, statusFilter, maintenanceTypeFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
 
   const priorityClass = (p) => {
     const map = { Low: 'priority-low', Normal: 'priority-normal', High: 'priority-high', Critical: 'priority-critical' };
@@ -249,24 +277,36 @@ const CentralGarage = () => {
             Minor
           </button>
         </div>
+        <GarageDateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
+
+      {rangeActive && (
+        <p className="date-range-hint">
+          Showing jobs completed {formatRangeLabel(dateRange)}
+          {maintenanceTypeFilter !== 'all' && ` · ${maintenanceTypeFilter === 'major' ? 'Major' : 'Minor'} only`}
+        </p>
+      )}
 
       <div className="garage-summary">
         <div className="summary-card">
-          <div className="summary-title">Total Registered</div>
-          <div className="summary-value">{totalRegistered}</div>
+          <div className="summary-title">{rangeActive ? 'Completed in Period' : 'Total Registered'}</div>
+          <div className="summary-value">{rangeActive ? completed : totalRegistered}</div>
         </div>
         <div className="summary-card">
-          <div className="summary-title">In Progress</div>
-          <div className="summary-value warning">{inProgress}</div>
+          <div className="summary-title">{rangeActive ? 'Major' : 'In Progress'}</div>
+          <div className={`summary-value ${rangeActive ? '' : 'warning'}`}>
+            {rangeActive ? majorInPeriod : inProgress}
+          </div>
         </div>
         <div className="summary-card">
-          <div className="summary-title">Completed</div>
-          <div className="summary-value success">{completed}</div>
+          <div className="summary-title">{rangeActive ? 'Minor' : 'Completed'}</div>
+          <div className={`summary-value ${rangeActive ? '' : 'success'}`}>
+            {rangeActive ? minorInPeriod : completed}
+          </div>
         </div>
         <div className="summary-card">
-          <div className="summary-title">Completion Rate</div>
-          <div className="summary-value">{completionRate}%</div>
+          <div className="summary-title">{rangeActive ? 'Period Total' : 'Completion Rate'}</div>
+          <div className="summary-value">{rangeActive ? completedInPeriod.length : `${completionRate}%`}</div>
         </div>
       </div>
 
@@ -311,7 +351,9 @@ const CentralGarage = () => {
             {filteredVehicles.length === 0 ? (
               <tr>
                 <td colSpan="8" className="text-center empty-row">
-                  No vehicles found. {isManager && 'Register one to get started.'}
+                  {rangeActive
+                    ? `No jobs completed ${formatRangeLabel(dateRange)}.`
+                    : `No vehicles found. ${isManager ? 'Register one to get started.' : ''}`}
                 </td>
               </tr>
             ) : filteredVehicles.map((v) => (
@@ -385,6 +427,29 @@ const CentralGarage = () => {
                     <option key={w.value} value={w.value}>{w.label}</option>
                   ))}
                 </select>
+              </div>
+              <div className="form-group">
+                <label>Maintenance Type</label>
+                <div className="registration-type-choice" role="radiogroup" aria-label="Maintenance type">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={newVehicle.maintenanceType === 'major'}
+                    className={`type-choice-btn type-major ${newVehicle.maintenanceType === 'major' ? 'selected' : ''}`}
+                    onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'major' })}
+                  >
+                    Major
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={newVehicle.maintenanceType === 'minor'}
+                    className={`type-choice-btn type-minor ${newVehicle.maintenanceType === 'minor' ? 'selected' : ''}`}
+                    onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'minor' })}
+                  >
+                    Minor
+                  </button>
+                </div>
               </div>
               <div className="form-group">
                 <label>Reported Issue</label>

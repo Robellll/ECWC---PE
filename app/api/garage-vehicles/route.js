@@ -13,6 +13,7 @@ const createSchema = z.object({
   reportedIssue: z.string().min(1),
   workshop: z.string().refine((v) => workshopValues.includes(v), { message: 'Invalid workshop' }),
   receivingInspector: z.string().min(2),
+  maintenanceType: z.enum(['major', 'minor']),
   priority: z.string().optional(),
 });
 
@@ -38,7 +39,7 @@ export async function POST(request) {
   const priority = PRIORITY_FROM_UI[d.priority] || 'normal';
   const rows = await sql`
     INSERT INTO garage_vehicles (
-      plate, sro_number, model, reported_issue, workshop, receiving_inspector, priority
+      plate, sro_number, model, reported_issue, workshop, receiving_inspector, maintenance_type, priority
     )
     VALUES (
       ${d.plate},
@@ -47,11 +48,13 @@ export async function POST(request) {
       ${d.reportedIssue},
       ${d.workshop}::garage_workshop,
       ${d.receivingInspector.trim()},
+      ${d.maintenanceType}::garage_maintenance_type,
       ${priority}::priority_level
     )
     RETURNING *
   `;
-  const logText = `Vehicle received at Central Garage. SRO: ${d.sroNumber}. Assigned to workshop. Receiving inspector: ${d.receivingInspector.trim()}.`;
+  const typeLabel = d.maintenanceType === 'major' ? 'Major' : 'Minor';
+  const logText = `Vehicle received at Central Garage. SRO: ${d.sroNumber}. ${typeLabel} maintenance. Assigned to workshop. Receiving inspector: ${d.receivingInspector.trim()}.`;
   await sql`
     INSERT INTO garage_progress_logs (vehicle_id, text) VALUES (${rows[0].id}, ${logText})
   `;
