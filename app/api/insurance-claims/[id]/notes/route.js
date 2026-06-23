@@ -15,6 +15,12 @@ export async function POST(request, { params }) {
     WHERE id = ${id} RETURNING *
   `;
   if (!rows[0]) return jsonError('Not found', 404);
+  const claimRows = await sql`
+    SELECT c.*, COALESCE(NULLIF(TRIM(c.project_name), ''), p.name, '') AS project_name
+    FROM insurance_claims c
+    LEFT JOIN projects p ON p.id = c.project_id
+    WHERE c.id = ${id}
+  `;
   const logs = await sql`SELECT * FROM insurance_progress_logs WHERE claim_id = ${id} ORDER BY created_at`;
-  return jsonOk(mapInsuranceClaim(rows[0], logs));
+  return jsonOk(mapInsuranceClaim(claimRows[0], logs));
 }

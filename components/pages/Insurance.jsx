@@ -1,18 +1,126 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Plus, Search, Filter, Trash2, Eye } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Plus, Search, Filter, X, ArrowUp, ArrowDown, ImagePlus } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
+import { sortTableData, nextSortDirection } from '@/lib/table-sort';
+import {
+  ACCIDENT_TYPES,
+  INSURANCE_DOC_FIELDS,
+  readImageFileAsDataUrl,
+  getDaysSinceAccident,
+  getDaysSinceTier,
+  formatDaysSinceLabel,
+} from '@/lib/insurance';
 import InsuranceDetailDrawer from '@/components/insurance/InsuranceDetailDrawer';
 import './Insurance.css';
 
-const PRIORITY_ORDER = { Critical: 0, High: 1, Normal: 2, Low: 3 };
+const TABLE_COLUMNS = [
+  { key: 'vehicleType', label: 'Make & Model', type: 'text' },
+  { key: 'plate', label: 'Plate No.', type: 'text' },
+  { key: 'accidentType', label: 'Accident Type', type: 'text' },
+  { key: 'daysSince', label: 'Days Since', type: 'number' },
+  { key: 'stage', label: 'Stage', type: 'text' },
+];
+
+function getSortValue(claim, column) {
+  switch (column) {
+    case 'vehicleType':
+      return (claim.vehicleType || '').toLowerCase();
+    case 'plate':
+      return (claim.plate || '').toLowerCase();
+    case 'accidentType':
+      return (claim.accidentType || '').toLowerCase();
+    case 'daysSince':
+      return getDaysSinceAccident(claim.accidentDate, claim.completedDate);
+    case 'stage':
+      return (claim.stage || '').toLowerCase();
+    default:
+      return '';
+  }
+}
+
+const SortableHeader = ({ column, label, sortColumn, sortDirection, onSort }) => {
+  const isActive = sortColumn === column.key;
+  return (
+    <th scope="col" className={isActive ? 'th-sortable th-sorted' : 'th-sortable'}>
+      <button
+        type="button"
+        className="th-sort-btn"
+        onClick={() => onSort(column.key)}
+        aria-sort={isActive ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        <span className="th-sort-label">{label}</span>
+        <span className={`th-sort-icons ${isActive ? 'active' : ''}`} aria-hidden="true">
+          {isActive ? (
+            sortDirection === 'asc' ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />
+          ) : (
+            <>
+              <ArrowUp size={10} className="th-sort-icon-muted" strokeWidth={2} />
+              <ArrowDown size={10} className="th-sort-icon-muted" strokeWidth={2} />
+            </>
+          )}
+        </span>
+      </button>
+    </th>
+  );
+};
+
+const DaysSinceCell = ({ accidentDate, completedDate }) => {
+  const days = getDaysSinceAccident(accidentDate, completedDate);
+  const tier = getDaysSinceTier(days);
+  return (
+    <span className={`days-since-badge days-since-${tier}`}>
+      {formatDaysSinceLabel(days)}
+    </span>
+  );
+};
+
+const DocCheckRow = ({ values, onToggle }) => (
+  <div className="ins-doc-check-row">
+    {INSURANCE_DOC_FIELDS.map(({ key, label }) => (
+      <label key={key} className={`ins-doc-chip ${values[key] ? 'checked' : ''}`}>
+        <input
+          type="checkbox"
+          checked={Boolean(values[key])}
+          onChange={() => onToggle(key)}
+        />
+        <span className="ins-doc-chip-label">{label}</span>
+      </label>
+    ))}
+  </div>
+);
+
+const emptyForm = () => ({
+  vehicleType: '',
+  plate: '',
+  projectName: '',
+  driverOperator: '',
+  accidentDate: new Date().toISOString().slice(0, 10),
+  policeReport: false,
+  accidentForm: false,
+  licenseDoc: false,
+  accidentType: 'collision',
+  accidentTypeOther: '',
+  accidentDescription: '',
+  accidentPhoto: null,
+  photoPreview: null,
+});
 
 const Insurance = () => {
   const { isInsuranceEditor } = usePermissions();
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedClaim, setSelectedClaim] = useState(null);
+  const [newClaim, setNewClaim] = useState(emptyForm);
+  const [submitError, setSubmitError] = useState('');
+  const [sortColumn, setSortColumn] = useState('daysSince');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [sortAnimating, setSortAnimating] = useState(false);
 
   const loadClaims = useCallback(async () => {
     const data = await apiFetch('/api/insurance-claims');
@@ -22,25 +130,13 @@ const Insurance = () => {
 
   useEffect(() => { loadClaims(); }, [loadClaims]);
 
-  const [search, setSearch]             = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedClaim, setSelectedClaim] = useState(null);
-  const [newClaim, setNewClaim]         = useState({
-    plate: '', model: '', accidentDescription: '', claimNumber: '', insuranceProvider: '', estimatedCost: '', priority: 'Normal'
-  });
+  const drawerClaim = claims.find((c) => c.id === selectedClaim?.id) || selectedClaim;
 
-  // Keep drawer in sync when store changes
-  const selectedFromStore = claims.find((c) => c.id === selectedClaim?.id);
-  const drawerClaim = selectedFromStore || selectedClaim;
-
-  // ── Summary stats ──
   const totalClaims = claims.length;
-  const openClaims  = claims.filter((c) => c.status === 'Open').length;
-  const closedClaims = claims.filter((c) => c.status === 'Closed').length;
-  const criticalClaims = claims.filter((c) => c.priority === 'Critical' || c.priority === 'High').length;
+  const openClaims = claims.filter((c) => c.status === 'Open').length;
+  const completedClaims = claims.filter((c) => c.status === 'Completed').length;
+  const pendingDocs = claims.filter((c) => c.stage === 'Document Pending').length;
 
-  // ── Handlers ──
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm('Delete this insurance claim record?')) return;
@@ -49,19 +145,47 @@ const Insurance = () => {
     await loadClaims();
   };
 
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await readImageFileAsDataUrl(file);
+      setNewClaim((prev) => ({ ...prev, accidentPhoto: dataUrl, photoPreview: dataUrl }));
+      setSubmitError('');
+    } catch (err) {
+      setSubmitError(err.message);
+    }
+  };
+
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    const payload = {
-      ...newClaim,
-      claimNumber: newClaim.claimNumber || `CLM-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
-      insuranceProvider: newClaim.insuranceProvider || 'Pending Insurer',
-      estimatedCost: newClaim.estimatedCost || 'TBD',
-    };
-    const created = await apiFetch('/api/insurance-claims', { method: 'POST', body: JSON.stringify(payload) });
-    setShowAddModal(false);
-    setNewClaim({ plate: '', model: '', accidentDescription: '', claimNumber: '', insuranceProvider: '', estimatedCost: '', priority: 'Normal' });
-    await loadClaims();
-    setSelectedClaim(created);
+    setSubmitError('');
+    try {
+      const payload = {
+        vehicleType: newClaim.vehicleType,
+        plate: newClaim.plate,
+        projectName: newClaim.projectName,
+        driverOperator: newClaim.driverOperator,
+        accidentDate: newClaim.accidentDate,
+        policeReport: newClaim.policeReport,
+        accidentForm: newClaim.accidentForm,
+        licenseDoc: newClaim.licenseDoc,
+        accidentType: newClaim.accidentType,
+        accidentTypeOther: newClaim.accidentTypeOther,
+        accidentDescription: newClaim.accidentDescription,
+        accidentPhoto: newClaim.accidentPhoto,
+      };
+      const created = await apiFetch('/api/insurance-claims', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      setShowAddModal(false);
+      setNewClaim(emptyForm());
+      await loadClaims();
+      setSelectedClaim(created);
+    } catch (err) {
+      setSubmitError(err.message || 'Could not register claim');
+    }
   };
 
   const handleClaimUpdate = (updated) => {
@@ -69,33 +193,55 @@ const Insurance = () => {
     setSelectedClaim(updated);
   };
 
-  const filteredClaims = useMemo(() => {
-    return claims
-      .filter((c) => {
-        const matchSearch =
-          c.plate.toLowerCase().includes(search.toLowerCase()) ||
-          c.model.toLowerCase().includes(search.toLowerCase()) ||
-          c.claimNumber.toLowerCase().includes(search.toLowerCase()) ||
-          c.insuranceProvider.toLowerCase().includes(search.toLowerCase());
-        const matchStatus = statusFilter === 'All' || c.status === statusFilter;
-        return matchSearch && matchStatus;
-      })
-      .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
-  }, [claims, search, statusFilter]);
+  const handleSort = useCallback((columnKey) => {
+    setSortDirection((prev) => nextSortDirection(sortColumn, columnKey, prev));
+    setSortColumn(columnKey);
+    setSortAnimating(true);
+  }, [sortColumn]);
 
-  const priorityClass = (p) => {
-    const map = { Low: 'priority-low', Normal: 'priority-normal', High: 'priority-high', Critical: 'priority-critical' };
-    return map[p] || 'priority-normal';
-  };
+  useEffect(() => {
+    if (!sortAnimating) return undefined;
+    const timer = setTimeout(() => setSortAnimating(false), 220);
+    return () => clearTimeout(timer);
+  }, [sortAnimating, sortColumn, sortDirection]);
+
+  const columnTypeMap = useMemo(
+    () => Object.fromEntries(TABLE_COLUMNS.map((c) => [c.key, c.type])),
+    [],
+  );
+
+  const filteredClaims = useMemo(() => {
+    const filtered = claims.filter((c) => {
+      const q = search.toLowerCase();
+      const matchSearch =
+        (c.plate || '').toLowerCase().includes(q) ||
+        (c.vehicleType || '').toLowerCase().includes(q) ||
+        (c.driverOperator || '').toLowerCase().includes(q) ||
+        (c.projectName || '').toLowerCase().includes(q) ||
+        (c.accidentDescription || '').toLowerCase().includes(q);
+      const matchStatus =
+        statusFilter === 'All' ||
+        (statusFilter === 'Open' && c.status === 'Open') ||
+        (statusFilter === 'Completed' && c.status === 'Completed');
+      return matchSearch && matchStatus;
+    });
+
+    return sortTableData(filtered, {
+      column: sortColumn,
+      direction: sortDirection,
+      type: columnTypeMap[sortColumn],
+      getValue: getSortValue,
+    });
+  }, [claims, search, statusFilter, sortColumn, sortDirection, columnTypeMap]);
 
   const stageClass = (s) => {
     const map = {
-      Reported: 'stage-reported',
-      'Documents Pending': 'stage-docs',
-      Inspection: 'stage-inspect',
-      Approved: 'stage-approved',
-      'Payout Received': 'stage-payout',
-      Closed: 'stage-closed'
+      'Reported/Notified': 'stage-reported',
+      'Document Pending': 'stage-docs',
+      'Insurance Inspection': 'stage-inspect',
+      Bid: 'stage-bid',
+      'Under Maintenance': 'stage-maintenance',
+      Completed: 'stage-completed',
     };
     return map[s] || 'stage-reported';
   };
@@ -106,21 +252,19 @@ const Insurance = () => {
 
   return (
     <div className="garage-container insurance-container">
-      {/* Header section */}
       <div className="garage-header">
         <div>
-          <h1 className="dashboard-title">Insurance Claims follow-up</h1>
-          <span className="page-subtitle">Track accidents, surveyor inspections, and repair claims settlement status</span>
+          <h1 className="dashboard-title">Insurance Claims</h1>
+          <span className="page-subtitle">Accident reporting, documentation, and claim workflow</span>
         </div>
         {isInsuranceEditor && (
-          <button className="register-btn" onClick={() => setShowAddModal(true)}>
+          <button className="register-btn" onClick={() => { setShowAddModal(true); setSubmitError(''); }}>
             <Plus size={16} />
-            Report Accident / Claim
+            Report Accident
           </button>
         )}
       </div>
 
-      {/* Summary metrics row */}
       <div className="stats-row">
         <div className="stat-card">
           <div className="stat-card-title">Total Incidents</div>
@@ -131,144 +275,123 @@ const Insurance = () => {
           <div className="stat-card-value warning">{openClaims}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-title">Settled Cases</div>
-          <div className="stat-card-value success">{closedClaims}</div>
+          <div className="stat-card-title">Document Pending</div>
+          <div className="stat-card-value">{pendingDocs}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-title">High Priority Risks</div>
-          <div className="stat-card-value danger">{criticalClaims}</div>
+          <div className="stat-card-title">Completed</div>
+          <div className="stat-card-value success">{completedClaims}</div>
         </div>
       </div>
 
-      {/* Filtering area */}
       <div className="table-controls">
         <div className="search-bar">
           <Search size={18} />
           <input
             type="text"
-            placeholder="Search plate, model, reference number or provider..."
+            placeholder="Search plate, vehicle type, driver, project…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className="filter-group">
           <Filter size={16} />
-          <button
-            className={`filter-tab ${statusFilter === 'All' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('All')}
-          >
-            All Claims
+          <button type="button" className={`filter-tab ${statusFilter === 'All' ? 'active' : ''}`} onClick={() => setStatusFilter('All')}>
+            All
           </button>
-          <button
-            className={`filter-tab ${statusFilter === 'Open' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('Open')}
-          >
+          <button type="button" className={`filter-tab ${statusFilter === 'Open' ? 'active' : ''}`} onClick={() => setStatusFilter('Open')}>
             Active
           </button>
-          <button
-            className={`filter-tab ${statusFilter === 'Closed' ? 'active' : ''}`}
-            onClick={() => setStatusFilter('Closed')}
-          >
-            Settled / Closed
+          <button type="button" className={`filter-tab ${statusFilter === 'Completed' ? 'active' : ''}`} onClick={() => setStatusFilter('Completed')}>
+            Completed
           </button>
         </div>
       </div>
 
-      {/* Claims Table */}
       <div className="table-wrapper">
-        <table className="garage-table">
+        <table className="garage-table garage-table-sortable insurance-table">
           <thead>
             <tr>
-              <th>Plate No.</th>
-              <th>Vehicle Model</th>
-              <th>Accident Date</th>
-              <th>Insurance Provider</th>
-              <th>Ref Number</th>
-              <th>Claim Amount</th>
-              <th>Priority</th>
-              <th>Status Stage</th>
-              <th>State</th>
-              <th>Actions</th>
+              {TABLE_COLUMNS.map((col) => (
+                <SortableHeader
+                  key={col.key}
+                  column={col}
+                  label={col.label}
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+              ))}
             </tr>
           </thead>
-          <tbody>
-            {filteredClaims.map((claim) => (
-              <tr
-                key={claim.id}
-                onClick={() => setSelectedClaim(claim)}
-                className={`clickable-row ${selectedClaim?.id === claim.id ? 'row-selected' : ''}`}
-              >
-                <td className="plate-cell">{claim.plate}</td>
-                <td>{claim.model}</td>
-                <td>{new Date(claim.accidentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                <td>{claim.insuranceProvider}</td>
-                <td style={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>{claim.claimNumber}</td>
-                <td style={{ fontWeight: 600 }}>{claim.estimatedCost}</td>
-                <td>
-                  <span className={`table-badge ${priorityClass(claim.priority)}`}>
-                    {claim.priority}
-                  </span>
-                </td>
-                <td>
-                  <span className={`stage-pill ${stageClass(claim.stage)}`}>
-                    {claim.stage}
-                  </span>
-                </td>
-                <td>
-                  <span className={`state-badge-val ${claim.status === 'Closed' ? 'closed' : 'open'}`}>
-                    {claim.status === 'Closed' ? 'Closed' : 'Open'}
-                  </span>
-                </td>
-                <td className="actions-cell">
-                  <button className="row-action-btn view" title="View details">
-                    <Eye size={15} />
-                  </button>
-                  {isInsuranceEditor && (
-                    <button
-                      className="row-action-btn delete"
-                      onClick={(e) => handleDelete(e, claim.id)}
-                      title="Delete Claim"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {filteredClaims.length === 0 && (
+          <tbody className={sortAnimating ? 'tbody-sorting' : ''}>
+            {filteredClaims.length === 0 ? (
               <tr>
-                <td colSpan="10" className="empty-table-cell">
-                  No accident insurance claims found matching criteria.
+                <td colSpan="5" className="empty-table-cell">
+                  No insurance claims found. {isInsuranceEditor && 'Report an accident to get started.'}
                 </td>
               </tr>
+            ) : (
+              filteredClaims.map((claim) => (
+                <tr
+                  key={claim.id}
+                  onClick={() => setSelectedClaim(claim)}
+                  className={`clickable-row ${claim.status === 'Completed' ? 'row-completed' : ''} ${selectedClaim?.id === claim.id ? 'row-selected' : ''}`}
+                >
+                  <td>{claim.vehicleType}</td>
+                  <td className="plate-cell">{claim.plate}</td>
+                  <td>
+                    {claim.accidentType}
+                    {claim.accidentType === 'Other' && claim.accidentTypeOther ? (
+                      <span className="text-muted"> — {claim.accidentTypeOther}</span>
+                    ) : null}
+                  </td>
+                  <td>
+                    <DaysSinceCell accidentDate={claim.accidentDate} completedDate={claim.completedDate} />
+                  </td>
+                  <td>
+                    <span className={`stage-pill ${stageClass(claim.stage)}`}>{claim.stage}</span>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Claim Detail Drawer */}
       {drawerClaim && (
         <InsuranceDetailDrawer
           claim={drawerClaim}
           onClose={() => setSelectedClaim(null)}
           onUpdate={handleClaimUpdate}
+          onDelete={isInsuranceEditor ? () => handleDelete({ stopPropagation: () => {} }, drawerClaim.id) : null}
         />
       )}
 
-      {/* Accident Claim Registration Modal */}
       {showAddModal && (
         <div className="modal-backdrop">
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content insurance-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Report Accident & Register Claim</h3>
-              <button className="close-btn" onClick={() => setShowAddModal(false)}>
+              <h3>Report Accident</h3>
+              <button type="button" className="close-btn" onClick={() => setShowAddModal(false)}>
                 <X size={18} />
               </button>
             </div>
             <form onSubmit={handleAddSubmit} className="modal-form">
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="plate">Plate Number *</label>
+                  <label htmlFor="vehicleType">Vehicle Make &amp; Model *</label>
+                  <input
+                    id="vehicleType"
+                    type="text"
+                    required
+                    placeholder="e.g. CAT 320 Excavator, Toyota Hilux"
+                    value={newClaim.vehicleType}
+                    onChange={(e) => setNewClaim({ ...newClaim, vehicleType: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="plate">Plate No. *</label>
                   <input
                     id="plate"
                     type="text"
@@ -278,86 +401,121 @@ const Insurance = () => {
                     onChange={(e) => setNewClaim({ ...newClaim, plate: e.target.value })}
                   />
                 </div>
+              </div>
+
+              <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="model">Vehicle Model *</label>
+                  <label htmlFor="project">Project *</label>
                   <input
-                    id="model"
+                    id="project"
                     type="text"
                     required
-                    placeholder="e.g. Toyota Hilux"
-                    value={newClaim.model}
-                    onChange={(e) => setNewClaim({ ...newClaim, model: e.target.value })}
+                    placeholder="e.g. Addis Ababa Ring Road"
+                    value={newClaim.projectName}
+                    onChange={(e) => setNewClaim({ ...newClaim, projectName: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="driver">Driver / Operator Name *</label>
+                  <input
+                    id="driver"
+                    type="text"
+                    required
+                    placeholder="Full name"
+                    value={newClaim.driverOperator}
+                    onChange={(e) => setNewClaim({ ...newClaim, driverOperator: e.target.value })}
                   />
                 </div>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="provider">Insurance Provider</label>
+                  <label htmlFor="accidentDate">Date of Accident *</label>
                   <input
-                    id="provider"
-                    type="text"
-                    placeholder="e.g. Nyala Insurance"
-                    value={newClaim.insuranceProvider}
-                    onChange={(e) => setNewClaim({ ...newClaim, insuranceProvider: e.target.value })}
+                    id="accidentDate"
+                    type="date"
+                    required
+                    value={newClaim.accidentDate}
+                    onChange={(e) => setNewClaim({ ...newClaim, accidentDate: e.target.value })}
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="claimNo">Claim Reference No.</label>
-                  <input
-                    id="claimNo"
-                    type="text"
-                    placeholder="e.g. CLM-2026-102"
-                    value={newClaim.claimNumber}
-                    onChange={(e) => setNewClaim({ ...newClaim, claimNumber: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="estCost">Estimated Damage Cost</label>
-                  <input
-                    id="estCost"
-                    type="text"
-                    placeholder="e.g. 150,000 ETB"
-                    value={newClaim.estimatedCost}
-                    onChange={(e) => setNewClaim({ ...newClaim, estimatedCost: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="priority">Claim Priority</label>
+                  <label htmlFor="accidentType">Accident Type *</label>
                   <select
-                    id="priority"
-                    value={newClaim.priority}
-                    onChange={(e) => setNewClaim({ ...newClaim, priority: e.target.value })}
+                    id="accidentType"
+                    required
+                    value={newClaim.accidentType}
+                    onChange={(e) => setNewClaim({ ...newClaim, accidentType: e.target.value })}
                   >
-                    <option value="Low">Low</option>
-                    <option value="Normal">Normal</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
+                    {ACCIDENT_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
+              {newClaim.accidentType === 'other' && (
+                <div className="form-group">
+                  <label htmlFor="accidentTypeOther">Specify Accident Type *</label>
+                  <input
+                    id="accidentTypeOther"
+                    type="text"
+                    required
+                    placeholder="Describe accident type"
+                    value={newClaim.accidentTypeOther}
+                    onChange={(e) => setNewClaim({ ...newClaim, accidentTypeOther: e.target.value })}
+                  />
+                </div>
+              )}
+
               <div className="form-group">
-                <label htmlFor="description">Accident & Damage Description *</label>
+                <span className="form-label-block">Documents on File</span>
+                <DocCheckRow
+                  values={newClaim}
+                  onToggle={(key) => setNewClaim({ ...newClaim, [key]: !newClaim[key] })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="description">Accident Description *</label>
                 <textarea
                   id="description"
                   required
-                  placeholder="Provide details of the accident location, vehicle speed, parts damaged, police contact details..."
+                  placeholder="Describe what happened, location, damage, witnesses…"
                   rows={4}
                   value={newClaim.accidentDescription}
                   onChange={(e) => setNewClaim({ ...newClaim, accidentDescription: e.target.value })}
                 />
               </div>
 
+              <div className="form-group">
+                <label htmlFor="accidentPhoto">Accident Photo</label>
+                <div className="photo-upload-zone">
+                  <input
+                    id="accidentPhoto"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handlePhotoChange}
+                    className="photo-input-hidden"
+                  />
+                  <label htmlFor="accidentPhoto" className="photo-upload-btn">
+                    <ImagePlus size={18} />
+                    {newClaim.photoPreview ? 'Change photo' : 'Add photo (optional, max 2 MB)'}
+                  </label>
+                  {newClaim.photoPreview && (
+                    <img src={newClaim.photoPreview} alt="Accident preview" className="photo-preview-thumb" />
+                  )}
+                </div>
+              </div>
+
+              {submitError && <p className="form-error">{submitError}</p>}
+
               <div className="modal-actions">
                 <button type="button" className="btn-cancel" onClick={() => setShowAddModal(false)}>
                   Cancel
                 </button>
                 <button type="submit" className="btn-submit">
-                  Submit Claim Report
+                  Register Accident
                 </button>
               </div>
             </form>
@@ -365,12 +523,6 @@ const Insurance = () => {
         </div>
       )}
     </div>
-  );
-};
-
-const X = ({ size }) => {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
   );
 };
 

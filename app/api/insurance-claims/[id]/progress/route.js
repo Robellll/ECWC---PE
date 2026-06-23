@@ -13,7 +13,12 @@ export async function POST(request, { params }) {
   const claim = await sql`SELECT id FROM insurance_claims WHERE id = ${id}`;
   if (!claim[0]) return jsonError('Not found', 404);
   await sql`INSERT INTO insurance_progress_logs (claim_id, text) VALUES (${id}, ${parsed.data.text})`;
-  const rows = await sql`SELECT * FROM insurance_claims WHERE id = ${id}`;
+  const rows = await sql`
+    SELECT c.*, COALESCE(NULLIF(TRIM(c.project_name), ''), p.name, '') AS project_name
+    FROM insurance_claims c
+    LEFT JOIN projects p ON p.id = c.project_id
+    WHERE c.id = ${id}
+  `;
   const logs = await sql`SELECT * FROM insurance_progress_logs WHERE claim_id = ${id} ORDER BY created_at`;
   return jsonOk(mapInsuranceClaim(rows[0], logs));
 }

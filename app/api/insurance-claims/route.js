@@ -1,22 +1,46 @@
 import { sql } from '@/lib/db.js';
 import { requireSession, requirePermission, jsonOk, jsonError } from '@/lib/api-helpers.js';
-import { mapInsuranceClaim, PRIORITY_FROM_UI } from '@/lib/mappers.js';
+import { mapInsuranceClaim } from '@/lib/mappers.js';
+import { validateAccidentPhoto } from '@/lib/insurance.js';
 import { z } from 'zod';
 
 const createSchema = z.object({
+  vehicleType: z.string().min(1),
   plate: z.string().min(1),
-  model: z.string().min(1),
-  accidentDescription: z.string().optional(),
-  claimNumber: z.string().min(1),
-  insuranceProvider: z.string().optional(),
-  estimatedCost: z.string().optional(),
-  priority: z.string().optional(),
+  projectId: z.string().uuid().nullable().optional(),
+  projectName: z.string().min(1),
+  driverOperator: z.string().min(1),
+  accidentDate: z.string().min(1),
+  policeReport: z.boolean().optional(),
+  accidentForm: z.boolean().optional(),
+  licenseDoc: z.boolean().optional(),
+  accidentType: z.enum(['collision', 'rollover', 'other']),
+  accidentTypeOther: z.string().optional(),
+  accidentDescription: z.string().min(1),
+  accidentPhoto: z.string().nullable().optional(),
 });
+
+async function fetchClaimWithLogs(id) {
+  const rows = await sql`
+    SELECT c.*, COALESCE(NULLIF(TRIM(c.project_name), ''), p.name, '') AS project_name
+    FROM insurance_claims c
+    LEFT JOIN projects p ON p.id = c.project_id
+    WHERE c.id = ${id}
+  `;
+  if (!rows[0]) return null;
+  const logs = await sql`SELECT * FROM insurance_progress_logs WHERE claim_id = ${id} ORDER BY created_at`;
+  return mapInsuranceClaim(rows[0], logs);
+}
 
 export async function GET() {
   const { error } = await requireSession();
   if (error) return error;
-  const claims = await sql`SELECT * FROM insurance_claims ORDER BY accident_date DESC`;
+  const claims = await sql`
+    SELECT c.*, COALESCE(NULLIF(TRIM(c.project_name), ''), p.name, '') AS project_name
+    FROM insurance_claims c
+    LEFT JOIN projects p ON p.id = c.project_id
+    ORDER BY c.accident_date DESC
+  `;
   const result = [];
   for (const c of claims) {
     const logs = await sql`SELECT * FROM insurance_progress_logs WHERE claim_id = ${c.id} ORDER BY created_at`;
@@ -31,21 +55,47 @@ export async function POST(request) {
   const body = await request.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return jsonError('Invalid input');
+
   const d = parsed.data;
-  const priority = PRIORITY_FROM_UI[d.priority] || 'normal';
+  const photoCheck = validateAccidentPhoto(d.accidentPhoto);
+  if (!photoCheck.ok) return jsonError(photoCheck.error);
+
+  if (d.accidentType === 'other' && !(d.accidentTypeOther || '').trim()) {
+    return jsonError('Please specify the accident type when "Other" is selected');
+  }
+
+  const accidentDate = new Date(d.accidentDate);
+  if (Number.isNaN(accidentDate.getTime())) return jsonError('Invalid accident date');
+
   const rows = await sql`
-    INSERT INTO insurance_claims (plate, model, accident_description, claim_number, insurance_provider, estimated_cost, priority)
+    INSERT INTO insurance_claims (
+      plate, vehicle_type, project_id, project_name, driver_operator, accident_date,
+      police_report, accident_form, license_doc,
+      accident_type, accident_type_other, accident_description, accident_photo
+    )
     VALUES (
-      ${d.plate}, ${d.model}, ${d.accidentDescription || ''},
-      ${d.claimNumber}, ${d.insuranceProvider || ''}, ${d.estimatedCost || ''},
-      ${priority}::priority_level
+      ${d.plate.trim()},
+      ${d.vehicleType.trim()},
+      NULL,
+      ${d.projectName.trim()},
+      ${d.driverOperator.trim()},
+      ${accidentDate.toISOString()},
+      ${Boolean(d.policeReport)},
+      ${Boolean(d.accidentForm)},
+      ${Boolean(d.licenseDoc)},
+      ${d.accidentType}::accident_type,
+      ${d.accidentType === 'other' ? (d.accidentTypeOther || '').trim() : ''},
+      ${d.accidentDescription.trim()},
+      ${photoCheck.value}
     )
     RETURNING *
   `;
+
   await sql`
     INSERT INTO insurance_progress_logs (claim_id, text)
-    VALUES (${rows[0].id}, 'Accident reported. Initial claim filed.')
+    VALUES (${rows[0].id}, 'Accident reported and claim registered.')
   `;
-  const logs = await sql`SELECT * FROM insurance_progress_logs WHERE claim_id = ${rows[0].id} ORDER BY created_at`;
-  return jsonOk(mapInsuranceClaim(rows[0], logs), 201);
+
+  const mapped = await fetchClaimWithLogs(rows[0].id);
+  return jsonOk(mapped, 201);
 }
