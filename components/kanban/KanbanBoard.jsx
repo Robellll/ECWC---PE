@@ -8,8 +8,9 @@ import { apiFetch } from '@/lib/api-client';
 import './Kanban.css';
 
 const KanbanBoard = () => {
-  const { isContactLogAdmin, canReorderContactLog } = usePermissions();
-  const canUseBoard = isContactLogAdmin || canReorderContactLog;
+  const { isContactLogProjectAdmin, canManageContactLogContacts, canReorderContactLog } = usePermissions();
+  const canUseBoard = isContactLogProjectAdmin || canManageContactLogContacts || canReorderContactLog;
+  const canEditContacts = canManageContactLogContacts;
   const [projects, setProjects] = useState([]);
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -145,7 +146,7 @@ const KanbanBoard = () => {
       <div className="kanban-header">
         <h1 className="kanban-title">Contact Log Directory</h1>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {isEditMode && isContactLogAdmin && (
+          {isEditMode && isContactLogProjectAdmin && (
             <button className="btn-primary" onClick={handleOpenAddProject}>
               <Plus size={16}/> Add Project
             </button>
@@ -157,7 +158,7 @@ const KanbanBoard = () => {
             >
               {isEditMode ? (
                 <><Save size={16}/> View Mode</>
-              ) : isContactLogAdmin ? (
+              ) : (isContactLogProjectAdmin || canManageContactLogContacts) ? (
                 <><Edit2 size={16}/> Edit Mode</>
               ) : (
                 <><Move size={16}/> Reorder Mode</>
@@ -181,7 +182,7 @@ const KanbanBoard = () => {
                 {/* Project Column */}
                 <div className="swimlane-project project-col">
                   <h3 className="project-name">{project.name}</h3>
-                  {isEditMode && isContactLogAdmin && !project.isUnassigned && (
+                  {isEditMode && isContactLogProjectAdmin && !project.isUnassigned && (
                     <div className="project-actions">
                       <button className="icon-btn-small" title="Edit Project" onClick={() => handleOpenEditProject(project)}><Edit2 size={14}/></button>
                       <button className="icon-btn-small delete" title="Delete Project" onClick={() => deleteProject(project.id)}><Trash2 size={14}/></button>
@@ -212,7 +213,7 @@ const KanbanBoard = () => {
                                 <p>{manager.phone}</p>
                                 <p>{manager.email}</p>
                               </div>
-                              {isEditMode && isContactLogAdmin && (
+                              {isEditMode && canEditContacts && (
                                 <div className="absolute-top-right" style={{ display: 'flex', gap: '4px' }}>
                                   <button className="icon-btn-small" title="Edit Manager" onClick={() => handleOpenEditManager(manager)}><Edit2 size={12}/></button>
                                   <button className="icon-btn-small delete" title="Delete Manager" onClick={() => handleDeleteManager(manager.id)}><Trash2 size={12}/></button>
@@ -223,7 +224,7 @@ const KanbanBoard = () => {
                         </Draggable>
                       ))}
                       {provided.placeholder}
-                      {isEditMode && isContactLogAdmin && (
+                      {isEditMode && canEditContacts && (
                         <button className="add-manager-btn" onClick={() => handleOpenAddManager(project.id, 'admin')}><Plus size={14}/> Add Manager</button>
                       )}
                     </div>
@@ -253,7 +254,7 @@ const KanbanBoard = () => {
                                 <p>{manager.phone}</p>
                                 <p>{manager.email}</p>
                               </div>
-                              {isEditMode && isContactLogAdmin && (
+                              {isEditMode && canEditContacts && (
                                 <div className="absolute-top-right" style={{ display: 'flex', gap: '4px' }}>
                                   <button className="icon-btn-small" title="Edit Manager" onClick={() => handleOpenEditManager(manager)}><Edit2 size={12}/></button>
                                   <button className="icon-btn-small delete" title="Delete Manager" onClick={() => handleDeleteManager(manager.id)}><Trash2 size={12}/></button>
@@ -264,7 +265,7 @@ const KanbanBoard = () => {
                         </Draggable>
                       ))}
                       {provided.placeholder}
-                      {isEditMode && isContactLogAdmin && (
+                      {isEditMode && canEditContacts && (
                         <button className="add-manager-btn" onClick={() => handleOpenAddManager(project.id, 'maintenance')}><Plus size={14}/> Add Manager</button>
                       )}
                     </div>

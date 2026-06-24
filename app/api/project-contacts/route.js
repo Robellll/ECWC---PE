@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const { error } = await requirePermission((p) => p.isContactLogAdmin);
+  const { error } = await requirePermission((p) => p.canManageContactLogContacts);
   if (error) return error;
   const body = await request.json();
   const parsed = createSchema.safeParse(body);
