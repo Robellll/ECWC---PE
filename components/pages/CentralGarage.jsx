@@ -8,7 +8,7 @@ import { useDuration } from '@/hooks/useDuration';
 import { apiFetch } from '@/lib/api-client';
 import { GARAGE_WORKSHOPS } from '@/lib/garage';
 import { sortTableData, nextSortDirection } from '@/lib/table-sort';
-import { isCompletedInRange, isRangeComplete, formatRangeLabel } from '@/lib/date-range';
+import { isRegisteredInRange, isRangeComplete, formatRangeLabel } from '@/lib/date-range';
 import VehicleDetailDrawer from '@/components/garage/VehicleDetailDrawer';
 import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import './Garage.css';
@@ -134,36 +134,21 @@ const CentralGarage = () => {
 
   const rangeActive = isRangeComplete(dateRange);
 
-  const completedInPeriod = useMemo(() => {
-    if (!rangeActive) return [];
-    return vehicles.filter((v) => isCompletedInRange(v, dateRange));
-  }, [vehicles, dateRange, rangeActive]);
-
   const typeFilteredVehicles = useMemo(() => {
     let list = vehicles;
     if (maintenanceTypeFilter !== 'all') {
       list = list.filter((v) => v.maintenanceType === maintenanceTypeFilter);
     }
     if (rangeActive) {
-      list = list.filter((v) => isCompletedInRange(v, dateRange));
+      list = list.filter((v) => isRegisteredInRange(v, dateRange));
     }
     return list;
   }, [vehicles, maintenanceTypeFilter, dateRange, rangeActive]);
 
   const totalRegistered = typeFilteredVehicles.length;
-  const inProgress = rangeActive
-    ? 0
-    : typeFilteredVehicles.filter((v) => v.status === 'In Progress').length;
-  const completed = rangeActive
-    ? totalRegistered
-    : typeFilteredVehicles.filter((v) => v.status === 'Completed').length;
+  const inProgress = typeFilteredVehicles.filter((v) => v.status === 'In Progress').length;
+  const completed = typeFilteredVehicles.filter((v) => v.status === 'Completed').length;
   const completionRate = totalRegistered === 0 ? 0 : Math.round((completed / totalRegistered) * 100);
-  const majorInPeriod = rangeActive
-    ? completedInPeriod.filter((v) => v.maintenanceType === 'major').length
-    : null;
-  const minorInPeriod = rangeActive
-    ? completedInPeriod.filter((v) => v.maintenanceType === 'minor').length
-    : null;
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
@@ -217,7 +202,7 @@ const CentralGarage = () => {
       const matchType =
         maintenanceTypeFilter === 'all' ||
         v.maintenanceType === maintenanceTypeFilter;
-      const matchRange = !rangeActive || isCompletedInRange(v, dateRange);
+      const matchRange = !rangeActive || isRegisteredInRange(v, dateRange);
       return matchSearch && matchStatus && matchType && matchRange;
     });
 
@@ -277,36 +262,36 @@ const CentralGarage = () => {
             Minor
           </button>
         </div>
-        <GarageDateRangePicker value={dateRange} onChange={setDateRange} />
+        <GarageDateRangePicker
+          value={dateRange}
+          onChange={setDateRange}
+          popoverTitle="Select registration date range"
+        />
       </div>
 
       {rangeActive && (
         <p className="date-range-hint">
-          Showing jobs completed {formatRangeLabel(dateRange)}
+          Showing jobs registered {formatRangeLabel(dateRange)}
           {maintenanceTypeFilter !== 'all' && ` · ${maintenanceTypeFilter === 'major' ? 'Major' : 'Minor'} only`}
         </p>
       )}
 
       <div className="garage-summary">
         <div className="summary-card">
-          <div className="summary-title">{rangeActive ? 'Completed in Period' : 'Total Registered'}</div>
-          <div className="summary-value">{rangeActive ? completed : totalRegistered}</div>
+          <div className="summary-title">{rangeActive ? 'Registered in Period' : 'Total Registered'}</div>
+          <div className="summary-value">{totalRegistered}</div>
         </div>
         <div className="summary-card">
-          <div className="summary-title">{rangeActive ? 'Major' : 'In Progress'}</div>
-          <div className={`summary-value ${rangeActive ? '' : 'warning'}`}>
-            {rangeActive ? majorInPeriod : inProgress}
-          </div>
+          <div className="summary-title">In Progress</div>
+          <div className="summary-value warning">{inProgress}</div>
         </div>
         <div className="summary-card">
-          <div className="summary-title">{rangeActive ? 'Minor' : 'Completed'}</div>
-          <div className={`summary-value ${rangeActive ? '' : 'success'}`}>
-            {rangeActive ? minorInPeriod : completed}
-          </div>
+          <div className="summary-title">Completed</div>
+          <div className="summary-value success">{completed}</div>
         </div>
         <div className="summary-card">
-          <div className="summary-title">{rangeActive ? 'Period Total' : 'Completion Rate'}</div>
-          <div className="summary-value">{rangeActive ? completedInPeriod.length : `${completionRate}%`}</div>
+          <div className="summary-title">Completion Rate</div>
+          <div className="summary-value">{completionRate}%</div>
         </div>
       </div>
 
@@ -352,7 +337,7 @@ const CentralGarage = () => {
               <tr>
                 <td colSpan="8" className="text-center empty-row">
                   {rangeActive
-                    ? `No jobs completed ${formatRangeLabel(dateRange)}.`
+                    ? `No jobs registered ${formatRangeLabel(dateRange)}.`
                     : `No vehicles found. ${isManager ? 'Register one to get started.' : ''}`}
                 </td>
               </tr>
