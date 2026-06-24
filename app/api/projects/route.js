@@ -10,7 +10,10 @@ const createSchema = z.object({
 export async function GET() {
   const { error } = await requireSession();
   if (error) return error;
-  const rows = await sql`SELECT * FROM projects ORDER BY sort_order, name`;
+  const rows = await sql`
+    SELECT * FROM projects
+    ORDER BY is_unassigned ASC, LOWER(name) ASC
+  `;
   return jsonOk(rows.map(mapProject));
 }
 

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, User, ChevronRight, Key } from 'lucide-react';
+import { Building2, User, ChevronRight, Key, Search } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
 import ProjectSiteLoginModal from '@/components/garage/ProjectSiteLoginModal';
@@ -14,6 +14,13 @@ const ProjectGarage = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loginProject, setLoginProject] = useState(null);
+  const [search, setSearch] = useState('');
+
+  const filteredProjects = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return projects;
+    return projects.filter((p) => p.name.toLowerCase().includes(q));
+  }, [projects, search]);
 
   const loadProjects = useCallback(async () => {
     const data = await apiFetch('/api/project-garage');
@@ -53,8 +60,27 @@ const ProjectGarage = () => {
           <p>No projects yet. Add a project in Contact Log to get started.</p>
         </div>
       ) : (
+        <>
+          <div className="pg-search-wrap">
+            <div className="pg-search-bar">
+              <Search size={16} className="pg-search-icon" aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search projects by name…"
+                aria-label="Search projects"
+              />
+            </div>
+          </div>
+
+          {filteredProjects.length === 0 ? (
+            <div className="project-garage-empty pg-search-empty">
+              <p>No projects match &ldquo;{search.trim()}&rdquo;.</p>
+            </div>
+          ) : (
         <div className="project-garage-grid">
-          {projects.map((project) => (
+          {filteredProjects.map((project) => (
             <article key={project.id} className="project-garage-card">
               <button
                 type="button"
@@ -126,6 +152,8 @@ const ProjectGarage = () => {
             </article>
           ))}
         </div>
+          )}
+        </>
       )}
 
       {loginProject && (

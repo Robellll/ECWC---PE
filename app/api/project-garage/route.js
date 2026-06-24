@@ -20,7 +20,7 @@ export async function GET() {
       ON gv.project_id = p.id AND gv.garage_scope = 'project'
     WHERE NOT p.is_unassigned
     GROUP BY p.id
-    ORDER BY p.sort_order, p.name
+    ORDER BY LOWER(p.name) ASC
   `;
 
   const contacts = await sql`SELECT * FROM project_contacts ORDER BY sort_order`;

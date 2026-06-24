@@ -11,6 +11,54 @@
   margin-bottom: 0.25rem;
 }
 
+.pg-search-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.pg-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 420px;
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pg-search-bar:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.pg-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.pg-search-bar input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  outline: none;
+  min-width: 0;
+}
+
+.pg-search-bar input::placeholder {
+  color: var(--text-muted);
+}
+
+.pg-search-empty {
+  padding: 2.5rem 1.5rem;
+}
+
 .project-garage-empty {
   display: flex;
   flex-direction: column;
