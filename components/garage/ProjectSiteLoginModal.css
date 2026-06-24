@@ -1,0 +1,95 @@
+.pg-site-login-modal {
+  max-width: 520px;
+}
+
+.pg-site-login-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.pg-site-login-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+}
+
+.pg-site-login-sub {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.pg-site-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.pg-site-status.active {
+  background: color-mix(in srgb, var(--success, #16a34a) 12%, transparent);
+  color: var(--success, #16a34a);
+}
+
+.pg-site-status.inactive {
+  background: color-mix(in srgb, var(--text-muted) 10%, transparent);
+  color: var(--text-muted);
+}
+
+.pg-site-status-meta {
+  font-weight: 400;
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+.pg-site-login-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 1.25rem;
+}
+
+.pg-email-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pg-email-row input {
+  flex: 1;
+}
+
+.pg-copy-btn {
+  padding: 0.5rem 0.65rem;
+  flex-shrink: 0;
+}
+
+.pg-site-error {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #dc2626;
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+
+.pg-site-success {
+  color: var(--success, #16a34a);
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+
+.pg-disable-btn {
+  margin-right: auto;
+  color: #dc2626;
+  border-color: color-mix(in srgb, #dc2626 30%, var(--border-color));
+}

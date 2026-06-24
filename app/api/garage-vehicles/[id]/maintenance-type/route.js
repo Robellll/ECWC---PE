@@ -1,5 +1,5 @@
 import { sql } from '@/lib/db.js';
-import { requirePermission, jsonOk, jsonError } from '@/lib/api-helpers.js';
+import { requireGarageVehicleAccess, jsonOk, jsonError } from '@/lib/api-helpers.js';
 import { mapGarageVehicle } from '@/lib/mappers.js';
 import { isValidMaintenanceType } from '@/lib/garage.js';
 import { z } from 'zod';
@@ -9,9 +9,9 @@ const schema = z.object({
 });
 
 export async function POST(request, { params }) {
-  const { error } = await requirePermission((p) => p.isGarageEditor);
-  if (error) return error;
   const { id } = await params;
+  const { error } = await requireGarageVehicleAccess(id, 'edit');
+  if (error) return error;
   const existing = await sql`SELECT * FROM garage_vehicles WHERE id = ${id}`;
   if (!existing[0]) return jsonError('Not found', 404);
 

@@ -13,7 +13,7 @@ const updateSchema = z.object({
 });
 
 export async function PATCH(request, { params }) {
-  const { error } = await requirePermission((p) => p.isProjectEditor);
+  const { error } = await requirePermission((p) => p.isContactLogAdmin);
   if (error) return error;
   const { id } = await params;
   const body = await request.json();
@@ -40,7 +40,7 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(_request, { params }) {
-  const { error } = await requirePermission((p) => p.isProjectEditor);
+  const { error } = await requirePermission((p) => p.isContactLogAdmin);
   if (error) return error;
   const { id } = await params;
   await sql`DELETE FROM project_contacts WHERE id = ${id}`;

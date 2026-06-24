@@ -1,7 +1,8 @@
 import { sql } from '@/lib/db.js';
-import { requirePermission, jsonOk, jsonError } from '@/lib/api-helpers.js';
+import { requireGarageVehicleAccess, jsonOk, jsonError } from '@/lib/api-helpers.js';
 import { mapGarageVehicle } from '@/lib/mappers.js';
-import { nextGarageStage } from '@/lib/stages.js';
+import { vehicleScope } from '@/lib/garage-access.js';
+import { nextGarageStage, nextProjectGarageStage } from '@/lib/stages.js';
 
 const STAGE_LABELS = {
   received: 'Received',
@@ -11,17 +12,19 @@ const STAGE_LABELS = {
 };
 
 export async function POST(_request, { params }) {
-  const { error } = await requirePermission((p) => p.isGarageEditor);
-  if (error) return error;
   const { id } = await params;
-  const existing = await sql`SELECT * FROM garage_vehicles WHERE id = ${id}`;
-  if (!existing[0]) return jsonError('Not found', 404);
-  if (existing[0].status === 'completed') {
+  const { error, vehicle: existing } = await requireGarageVehicleAccess(id, 'edit');
+  if (error) return error;
+  if (existing.status === 'completed') {
     return jsonError('Completed vehicles cannot advance stage', 400);
   }
 
-  const nextStage = nextGarageStage(existing[0].stage);
-  if (nextStage === existing[0].stage) {
+  const scope = vehicleScope(existing);
+  const nextStage = scope === 'project'
+    ? nextProjectGarageStage(existing.stage)
+    : nextGarageStage(existing.stage);
+
+  if (nextStage === existing.stage) {
     return jsonError('Vehicle is already at the maximum advanceable stage', 400);
   }
 

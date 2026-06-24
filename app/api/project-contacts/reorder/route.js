@@ -10,7 +10,7 @@ const schema = z.object({
 });
 
 export async function PATCH(request) {
-  const { error } = await requirePermission((p) => p.isProjectEditor);
+  const { error } = await requirePermission((p) => p.canReorderContactLog);
   if (error) return error;
   const body = await request.json();
   const parsed = schema.safeParse(body);

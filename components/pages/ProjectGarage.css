@@ -1,0 +1,333 @@
+.project-garage-container {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  height: 100%;
+  animation: fadeInUp 0.5s ease both;
+}
+
+.project-garage-header {
+  margin-bottom: 0.25rem;
+}
+
+.project-garage-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+  text-align: center;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+}
+
+/* —— Project cards: dashboard tile style —— */
+
+.project-garage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.25rem;
+}
+
+.project-garage-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  transition:
+    box-shadow 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.25s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.project-garage-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
+  box-shadow:
+    var(--shadow-md),
+    0 8px 24px color-mix(in srgb, var(--accent) 10%, transparent);
+  transform: translateY(-3px);
+}
+
+.pg-card-main {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.pg-card-accent {
+  height: 4px;
+  width: 100%;
+  background: var(--accent-gradient);
+  flex-shrink: 0;
+  transition: opacity 0.25s ease;
+}
+
+.project-garage-card:hover .pg-card-accent {
+  opacity: 1;
+  filter: brightness(1.1);
+}
+
+.project-garage-card:hover .pg-metric {
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--border-color));
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg-main));
+}
+
+.pg-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1.15rem 1.35rem 0.9rem;
+}
+
+.pg-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.pg-card-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-light);
+  color: var(--accent-dark);
+  transition: transform 0.25s ease, background 0.25s ease;
+}
+
+.project-garage-card:hover .pg-card-badge {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  transform: scale(1.05);
+}
+
+.pg-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-main);
+  line-height: 1.3;
+  text-align: left;
+}
+
+.pg-open-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.project-garage-card:hover .pg-open-link {
+  color: var(--accent-dark);
+}
+
+/* Metric tiles */
+.pg-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  padding: 0 1.35rem 1rem;
+}
+
+.pg-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.85rem 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-main);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.pg-metric-value {
+  font-size: 1.65rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.pg-metric-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.pg-metric--progress .pg-metric-value {
+  color: #d97706;
+}
+
+.pg-metric--done .pg-metric-value {
+  color: #16a34a;
+}
+
+/* Contacts strip */
+.pg-card-contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0 1.35rem 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+}
+
+.pg-contact {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.pg-contact strong {
+  font-weight: 600;
+  color: var(--text-main);
+  margin-right: 0.2rem;
+}
+
+.pg-card-footer {
+  padding: 0.75rem 1.35rem;
+  border-top: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-main) 60%, var(--bg-card));
+}
+
+.pg-total-jobs {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Superadmin site login row */
+.pg-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1.35rem;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-main);
+}
+
+.pg-site-login-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #16a34a 12%, transparent);
+  color: #16a34a;
+  max-width: 58%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-site-login-chip.inactive {
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  color: var(--text-muted);
+}
+
+.pg-site-login-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+
+.pg-site-login-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  background: var(--accent-light);
+}
+
+/* —— Project detail: home / back to grid —— */
+
+.project-garage-detail-top {
+  margin-bottom: 1rem;
+}
+
+.project-garage-home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--accent-dark);
+  background: var(--accent-light);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border-color));
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.project-garage-home-btn:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-card));
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.project-garage-home-btn:active {
+  box-shadow: var(--shadow-sm);
+}
+
+.project-garage-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.project-garage-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

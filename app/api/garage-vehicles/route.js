@@ -20,7 +20,11 @@ const createSchema = z.object({
 export async function GET() {
   const { error } = await requireSession();
   if (error) return error;
-  const vehicles = await sql`SELECT * FROM garage_vehicles ORDER BY registered_at DESC`;
+  const vehicles = await sql`
+    SELECT * FROM garage_vehicles
+    WHERE garage_scope = 'central'
+    ORDER BY registered_at DESC
+  `;
   const result = [];
   for (const v of vehicles) {
     const logs = await sql`SELECT * FROM garage_progress_logs WHERE vehicle_id = ${v.id} ORDER BY created_at`;
@@ -30,7 +34,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const { error } = await requirePermission((p) => p.isGarageEditor);
+  const { error } = await requirePermission((p) => p.isCentralGarageEditor);
   if (error) return error;
   const body = await request.json();
   const parsed = createSchema.safeParse(body);

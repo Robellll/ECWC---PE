@@ -5,7 +5,7 @@ import {
   X, Clock, User, AlertTriangle, CheckCircle2, Circle, MessageSquarePlus,
   Save, Lock, FileText, Calendar, Flag, ArrowRight, Wrench, ClipboardCheck, UserCheck,
 } from 'lucide-react';
-import { GARAGE_STAGES } from '@/lib/constants';
+import { GARAGE_STAGES, PROJECT_GARAGE_STAGES } from '@/lib/constants';
 import { workshopLabel, workshopColor, isValidStaffName, isValidMaintenanceType, maintenanceTypeLabel } from '@/lib/garage';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDuration } from '@/hooks/useDuration';
@@ -19,8 +19,9 @@ const PRIORITY_CONFIG = {
   Critical: { color: 'priority-critical', icon: '⬥' },
 };
 
-const StageStep = ({ stage, currentStage, index }) => {
-  const stageIndex = GARAGE_STAGES.indexOf(currentStage);
+const StageStep = ({ stage, currentStage, index, totalStages }) => {
+  const stageList = totalStages === 3 ? PROJECT_GARAGE_STAGES : GARAGE_STAGES;
+  const stageIndex = stageList.indexOf(currentStage);
   const isCompleted = index < stageIndex;
   const isActive = index === stageIndex;
   return (
@@ -29,7 +30,7 @@ const StageStep = ({ stage, currentStage, index }) => {
         {isCompleted ? <CheckCircle2 size={16} /> : isActive ? <Circle size={16} className="pulse-ring" /> : <Circle size={16} />}
       </div>
       <span className="step-label">{stage}</span>
-      {index < GARAGE_STAGES.length - 1 && <div className={`step-connector ${isCompleted ? 'connector-done' : ''}`} />}
+      {index < totalStages - 1 && <div className={`step-connector ${isCompleted ? 'connector-done' : ''}`} />}
     </div>
   );
 };
@@ -54,8 +55,13 @@ const DurationLive = ({ startTime, endTime }) => {
   return <div className="detail-duration"><Clock size={14} /><span>{duration}</span></div>;
 };
 
-const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
-  const { isGarageEditor: isManager } = usePermissions();
+const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }) => {
+  const { isCentralGarageEditor, isProjectGarageEditor, isSuperAdmin, user } = usePermissions();
+  const isProject = variant === 'project' || vehicle.garageScope === 'project';
+  const canEditThisProject = isSuperAdmin
+    || (isProjectGarageEditor && user?.projectId && user.projectId === vehicle.projectId);
+  const isManager = isProject ? canEditThisProject : isCentralGarageEditor;
+  const stageList = isProject ? PROJECT_GARAGE_STAGES : GARAGE_STAGES;
   const [notes, setNotes] = useState(vehicle.managerNotes || '');
   const [notesDirty, setNotesDirty] = useState(false);
   const [logInput, setLogInput] = useState('');
@@ -131,8 +137,10 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
 
   const handleToggleComplete = async () => {
     setCompleteError('');
-    if (!isValidStaffName(assignedTechnician) || !isValidStaffName(finalInspectionOfficer)) {
-      setCompleteError('Assigned Mechanic and Final Inspection Officer are required before completion.');
+    if (!isValidStaffName(assignedTechnician) || (!isProject && !isValidStaffName(finalInspectionOfficer))) {
+      setCompleteError(isProject
+        ? 'Assigned Mechanic is required before completion.'
+        : 'Assigned Mechanic and Final Inspection Officer are required before completion.');
       return;
     }
     if (!isValidMaintenanceType(maintenanceType)) {
@@ -158,12 +166,13 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
     onUpdate(updated);
   };
 
-  const currentStageIdx = GARAGE_STAGES.indexOf(vehicle.stage);
-  const canAdvance = isManager && vehicle.status !== 'Completed' && currentStageIdx < GARAGE_STAGES.length - 2;
-  const atFinalInspection = vehicle.stage === 'Final Inspection' && vehicle.status !== 'Completed';
-  const canComplete = isManager && atFinalInspection
+  const currentStageIdx = stageList.indexOf(vehicle.stage);
+  const canAdvance = isManager && vehicle.status !== 'Completed' && currentStageIdx < stageList.length - 2;
+  const atFinalInspection = !isProject && vehicle.stage === 'Final Inspection' && vehicle.status !== 'Completed';
+  const atProjectComplete = isProject && vehicle.stage === 'Under Maintenance' && vehicle.status !== 'Completed';
+  const canComplete = isManager && (atFinalInspection || atProjectComplete)
     && isValidStaffName(assignedTechnician)
-    && isValidStaffName(finalInspectionOfficer)
+    && (isProject || isValidStaffName(finalInspectionOfficer))
     && isValidMaintenanceType(maintenanceType);
   const pConfig = PRIORITY_CONFIG[vehicle.priority] || PRIORITY_CONFIG.Normal;
   const workshopStyle = vehicle.workshop ? { '--workshop-color': workshopColor(vehicle.workshop) } : {};
@@ -177,7 +186,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
             <span className={`priority-badge ${pConfig.color}`}>{pConfig.icon} {vehicle.priority}</span>
             <h2 className="drawer-plate">{vehicle.plate}</h2>
             <p className="drawer-model">{vehicle.model}</p>
-            {vehicle.sroNumber && <p className="drawer-sro">SRO: {vehicle.sroNumber}</p>}
+            {vehicle.sroNumber && !isProject && <p className="drawer-sro">SRO: {vehicle.sroNumber}</p>}
           </div>
           <div className="drawer-header-right">
             <span className={`status-badge ${vehicle.status === 'Completed' ? 'success' : 'warning'}`}>{vehicle.status}</span>
@@ -196,7 +205,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                 </span>
               </div>
             </div>
-            {vehicle.workshop && (
+            {vehicle.workshop && !isProject && (
               <div className="detail-info-item">
                 <Wrench size={14} />
                 <div>
@@ -242,7 +251,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
             <div className="detail-info-item detail-info-full">
               <Clock size={14} />
               <div>
-                <span className="detail-info-label">Time in Garage</span>
+                <span className="detail-info-label">{isProject ? 'Time on Site' : 'Time in Garage'}</span>
                 <DurationLive startTime={vehicle.registeredDate} endTime={vehicle.completedDate} />
               </div>
             </div>
@@ -252,12 +261,18 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
             <div className="detail-section-title"><UserCheck size={15} />Staff Accountability</div>
             <div className="accountability-grid">
               <div className="accountability-item">
-                <span className="accountability-label">Receiving Inspector</span>
+                <span className="accountability-label">{isProject ? 'Site Supervisor' : 'Receiving Inspector'}</span>
                 <span className="accountability-value">{vehicle.receivingInspector || '—'}</span>
               </div>
+              {isProject && vehicle.siteOperatorName && (
+                <div className="accountability-item">
+                  <span className="accountability-label">Registered By</span>
+                  <span className="accountability-value">{vehicle.siteOperatorName}</span>
+                </div>
+              )}
               <div className="accountability-item">
                 <span className="accountability-label">Assigned Mechanic</span>
-                {atFinalInspection && isManager ? (
+                {(atFinalInspection || atProjectComplete) && isManager ? (
                   <input
                     className="completion-input"
                     type="text"
@@ -270,6 +285,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                   <span className="accountability-value">{vehicle.assignedTechnician || '—'}</span>
                 )}
               </div>
+              {!isProject && (
               <div className="accountability-item">
                 <span className="accountability-label">Final Inspection Officer</span>
                 {atFinalInspection && isManager ? (
@@ -285,11 +301,18 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
                   <span className="accountability-value">{vehicle.finalInspectionOfficer || '—'}</span>
                 )}
               </div>
+              )}
             </div>
-            {atFinalInspection && isManager && (
+            {atFinalInspection && isManager && !isProject && (
               <p className="completion-hint">
                 <ClipboardCheck size={13} />
                 Enter assigned mechanic and final inspection officer before completing.
+              </p>
+            )}
+            {atProjectComplete && isManager && (
+              <p className="completion-hint">
+                <ClipboardCheck size={13} />
+                Enter assigned mechanic before completing.
               </p>
             )}
           </div>
@@ -302,23 +325,23 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate }) => {
           <div className="detail-section">
             <div className="detail-section-title"><Flag size={15} />Maintenance Progress</div>
             <div className="stage-tracker">
-              {GARAGE_STAGES.map((stage, i) => (
-                <StageStep key={stage} stage={stage} currentStage={vehicle.stage} index={i} />
+              {stageList.map((stage, i) => (
+                <StageStep key={stage} stage={stage} currentStage={vehicle.stage} index={i} totalStages={stageList.length} />
               ))}
             </div>
             {canAdvance && (
               <button className="advance-stage-btn" onClick={handleAdvance}>
-                <ArrowRight size={15} />Advance to &quot;{GARAGE_STAGES[currentStageIdx + 1]}&quot;
+                <ArrowRight size={15} />Advance to &quot;{stageList[currentStageIdx + 1]}&quot;
               </button>
             )}
-            {isManager && atFinalInspection && (
+            {isManager && (atFinalInspection || atProjectComplete) && (
               <>
                 {completeError && <p className="completion-error">{completeError}</p>}
                 <button
                   className="complete-btn"
                   onClick={handleToggleComplete}
                   disabled={!canComplete || completing}
-                  title={!canComplete ? 'Enter Assigned Mechanic and Final Inspection Officer first' : ''}
+                  title={!canComplete ? (isProject ? 'Enter Assigned Mechanic first' : 'Enter Assigned Mechanic and Final Inspection Officer first') : ''}
                 >
                   <CheckCircle2 size={15} />Mark as Completed
                 </button>

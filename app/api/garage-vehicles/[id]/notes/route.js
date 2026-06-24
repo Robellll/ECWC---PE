@@ -1,12 +1,12 @@
 import { sql } from '@/lib/db.js';
-import { requirePermission, jsonOk, jsonError } from '@/lib/api-helpers.js';
+import { requireGarageVehicleAccess, jsonOk, jsonError } from '@/lib/api-helpers.js';
 import { mapGarageVehicle } from '@/lib/mappers.js';
 import { z } from 'zod';
 
 export async function POST(request, { params }) {
-  const { error } = await requirePermission((p) => p.isGarageEditor);
-  if (error) return error;
   const { id } = await params;
+  const { error } = await requireGarageVehicleAccess(id, 'edit');
+  if (error) return error;
   const body = await request.json();
   const parsed = z.object({ notes: z.string() }).safeParse(body);
   if (!parsed.success) return jsonError('Invalid input');

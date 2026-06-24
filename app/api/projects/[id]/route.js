@@ -6,7 +6,7 @@ import { z } from 'zod';
 const updateSchema = z.object({ name: z.string().min(1).optional() });
 
 export async function PATCH(request, { params }) {
-  const { error } = await requirePermission((p) => p.isProjectEditor);
+  const { error } = await requirePermission((p) => p.isContactLogAdmin);
   if (error) return error;
   const { id } = await params;
   const body = await request.json();
@@ -23,7 +23,7 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(_request, { params }) {
-  const { error } = await requirePermission((p) => p.isProjectEditor);
+  const { error } = await requirePermission((p) => p.isContactLogAdmin);
   if (error) return error;
   const { id } = await params;
   const existing = await sql`SELECT * FROM projects WHERE id = ${id}`;

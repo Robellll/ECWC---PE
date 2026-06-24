@@ -1,28 +1,31 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Plus, Search, Filter, Trash2, Clock, ChevronRight, Eye, ArrowUp, ArrowDown } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  Plus, Search, Filter, Trash2, Clock, ChevronRight, Eye, ArrowUp, ArrowDown, LayoutGrid, Key,
+} from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDuration } from '@/hooks/useDuration';
 import { apiFetch } from '@/lib/api-client';
-import { GARAGE_WORKSHOPS } from '@/lib/garage';
 import { sortTableData, nextSortDirection } from '@/lib/table-sort';
 import { isRegisteredInRange, isRangeComplete, formatRangeLabel } from '@/lib/date-range';
 import VehicleDetailDrawer from '@/components/garage/VehicleDetailDrawer';
+import ProjectSiteLoginModal from '@/components/garage/ProjectSiteLoginModal';
 import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import './Garage.css';
+import './ProjectGarage.css';
 
 const PRIORITY_ORDER = { Critical: 0, High: 1, Normal: 2, Low: 3 };
 
 const TABLE_COLUMNS = [
   { key: 'priority', label: 'Priority', type: 'number' },
-  { key: 'plate', label: 'Plate Number', type: 'text' },
-  { key: 'model', label: 'Vehicle / Equipment', type: 'text' },
+  { key: 'plate', label: 'Plate / ID', type: 'text' },
+  { key: 'model', label: 'Equipment', type: 'text' },
   { key: 'registered', label: 'Registered', type: 'date' },
   { key: 'duration', label: 'Duration', type: 'number' },
   { key: 'status', label: 'Status', type: 'text' },
-  { key: 'receivingInspector', label: 'Receiving Inspector', type: 'text' },
+  { key: 'receivingInspector', label: 'Site Supervisor', type: 'text' },
 ];
 
 function getDurationMs(vehicle) {
@@ -34,22 +37,14 @@ function getDurationMs(vehicle) {
 
 function getSortValue(vehicle, column) {
   switch (column) {
-    case 'priority':
-      return PRIORITY_ORDER[vehicle.priority] ?? 99;
-    case 'plate':
-      return (vehicle.plate || '').toLowerCase();
-    case 'model':
-      return (vehicle.model || '').toLowerCase();
-    case 'registered':
-      return vehicle.registeredDate;
-    case 'duration':
-      return getDurationMs(vehicle);
-    case 'status':
-      return (vehicle.status || '').toLowerCase();
-    case 'receivingInspector':
-      return (vehicle.receivingInspector || '').toLowerCase();
-    default:
-      return '';
+    case 'priority': return PRIORITY_ORDER[vehicle.priority] ?? 99;
+    case 'plate': return (vehicle.plate || '').toLowerCase();
+    case 'model': return (vehicle.model || '').toLowerCase();
+    case 'registered': return vehicle.registeredDate;
+    case 'duration': return getDurationMs(vehicle);
+    case 'status': return (vehicle.status || '').toLowerCase();
+    case 'receivingInspector': return (vehicle.receivingInspector || '').toLowerCase();
+    default: return '';
   }
 }
 
@@ -81,28 +76,25 @@ const SortableHeader = ({ column, label, sortColumn, sortDirection, onSort }) =>
 
 const DurationCell = ({ startTime, endTime }) => {
   const duration = useDuration(startTime, endTime);
-  return (
-    <div className="duration-cell">
-      <Clock size={13} /> {duration}
-    </div>
-  );
+  return <div className="duration-cell"><Clock size={13} /> {duration}</div>;
 };
 
 const emptyForm = () => ({
   plate: '',
-  sroNumber: '',
   model: '',
   reportedIssue: '',
-  workshop: GARAGE_WORKSHOPS[0].value,
-  receivingInspector: '',
+  siteSupervisor: '',
   maintenanceType: 'major',
   priority: 'Normal',
+  siteOperatorName: '',
 });
 
-const CentralGarage = () => {
-  const searchParams = useSearchParams();
-  const vehicleIdParam = searchParams.get('vehicle');
-  const { isCentralGarageEditor: isManager } = usePermissions();
+const ProjectGarageDetail = ({ projectId }) => {
+  const router = useRouter();
+  const { isSuperAdmin, user, isProjPEAdmin, isProjPEMaintenance } = usePermissions();
+  const canEdit = isSuperAdmin
+    || ((isProjPEAdmin || isProjPEMaintenance) && user?.projectId === projectId);
+  const [projectName, setProjectName] = useState('');
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -115,23 +107,18 @@ const CentralGarage = () => {
   const [sortColumn, setSortColumn] = useState('registered');
   const [sortDirection, setSortDirection] = useState('desc');
   const [sortAnimating, setSortAnimating] = useState(false);
+  const [showSiteLogin, setShowSiteLogin] = useState(false);
 
   const loadVehicles = useCallback(async () => {
-    const data = await apiFetch('/api/garage-vehicles');
-    setVehicles(data);
+    const data = await apiFetch(`/api/project-garage/${projectId}/vehicles`);
+    setProjectName(data.project?.name || '');
+    setVehicles(data.vehicles || []);
     setLoading(false);
-  }, []);
+  }, [projectId]);
 
   useEffect(() => { loadVehicles(); }, [loadVehicles]);
 
-  useEffect(() => {
-    if (!vehicleIdParam || loading) return;
-    const match = vehicles.find((v) => v.id === vehicleIdParam);
-    if (match) setSelectedVehicle(match);
-  }, [vehicleIdParam, loading, vehicles]);
-
   const drawerVehicle = vehicles.find((v) => v.id === selectedVehicle?.id) || selectedVehicle;
-
   const rangeActive = isRangeComplete(dateRange);
 
   const typeFilteredVehicles = useMemo(() => {
@@ -160,9 +147,12 @@ const CentralGarage = () => {
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    const created = await apiFetch('/api/garage-vehicles', {
+    const created = await apiFetch(`/api/project-garage/${projectId}/vehicles`, {
       method: 'POST',
-      body: JSON.stringify(newVehicle),
+      body: JSON.stringify({
+        ...newVehicle,
+        siteOperatorName: newVehicle.siteOperatorName || user?.name || '',
+      }),
     });
     setShowAddModal(false);
     setNewVehicle(emptyForm());
@@ -196,16 +186,12 @@ const CentralGarage = () => {
     const filtered = vehicles.filter((v) => {
       const matchSearch =
         v.plate.toLowerCase().includes(search.toLowerCase()) ||
-        v.model.toLowerCase().includes(search.toLowerCase()) ||
-        (v.sroNumber || '').toLowerCase().includes(search.toLowerCase());
+        v.model.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === 'All' || v.status === statusFilter;
-      const matchType =
-        maintenanceTypeFilter === 'all' ||
-        v.maintenanceType === maintenanceTypeFilter;
+      const matchType = maintenanceTypeFilter === 'all' || v.maintenanceType === maintenanceTypeFilter;
       const matchRange = !rangeActive || isRegisteredInRange(v, dateRange);
       return matchSearch && matchStatus && matchType && matchRange;
     });
-
     return sortTableData(filtered, {
       column: sortColumn,
       direction: sortDirection,
@@ -220,47 +206,50 @@ const CentralGarage = () => {
   };
 
   if (loading) {
-    return <div className="garage-container"><p className="page-subtitle">Loading garage records…</p></div>;
+    return <div className="garage-container"><p className="page-subtitle">Loading project garage…</p></div>;
   }
 
   return (
     <div className="garage-container">
-      <div className="garage-header">
+      <div className="project-garage-detail-top">
+        <button type="button" className="project-garage-home-btn" onClick={() => router.push('/project-garage')}>
+          <LayoutGrid size={17} />
+          <span>All Projects</span>
+        </button>
+      </div>
+
+      <div className="project-garage-detail-header">
         <div>
-          <h1 className="page-title">Central Garage</h1>
-          <p className="page-subtitle">Plant &amp; Equipment Maintenance Workflow</p>
+          <h1 className="page-title">{projectName}</h1>
+          <p className="page-subtitle">Project site maintenance · Received → Under Maintenance → Completed</p>
         </div>
-        {isManager && (
-          <button className="btn-primary" onClick={() => setShowAddModal(true)}>
-            <Plus size={16} /> Register Vehicle
-          </button>
-        )}
+        <div className="project-garage-detail-actions">
+          {canEdit && (
+            <button className="btn-primary" onClick={() => setShowAddModal(true)}>
+              <Plus size={16} /> Register Equipment
+            </button>
+          )}
+          {isSuperAdmin && (
+            <button type="button" className="btn-secondary" onClick={() => setShowSiteLogin(true)}>
+              <Key size={16} /> Site Login
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="maintenance-type-filters">
         <span className="maintenance-type-label">Maintenance Type</span>
         <div className="maintenance-type-toggle" role="group" aria-label="Filter by maintenance type">
-          <button
-            type="button"
-            className={`type-filter-btn ${maintenanceTypeFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setMaintenanceTypeFilter('all')}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            className={`type-filter-btn type-major ${maintenanceTypeFilter === 'major' ? 'active' : ''}`}
-            onClick={() => setMaintenanceTypeFilter('major')}
-          >
-            Major
-          </button>
-          <button
-            type="button"
-            className={`type-filter-btn type-minor ${maintenanceTypeFilter === 'minor' ? 'active' : ''}`}
-            onClick={() => setMaintenanceTypeFilter('minor')}
-          >
-            Minor
-          </button>
+          {['all', 'major', 'minor'].map((type) => (
+            <button
+              key={type}
+              type="button"
+              className={`type-filter-btn ${type !== 'all' ? `type-${type}` : ''} ${maintenanceTypeFilter === type ? 'active' : ''}`}
+              onClick={() => setMaintenanceTypeFilter(type)}
+            >
+              {type === 'all' ? 'All' : type === 'major' ? 'Major' : 'Minor'}
+            </button>
+          ))}
         </div>
         <GarageDateRangePicker
           value={dateRange}
@@ -270,10 +259,7 @@ const CentralGarage = () => {
       </div>
 
       {rangeActive && (
-        <p className="date-range-hint">
-          Showing jobs registered {formatRangeLabel(dateRange)}
-          {maintenanceTypeFilter !== 'all' && ` · ${maintenanceTypeFilter === 'major' ? 'Major' : 'Minor'} only`}
-        </p>
+        <p className="date-range-hint">Showing jobs registered {formatRangeLabel(dateRange)}</p>
       )}
 
       <div className="garage-summary">
@@ -300,7 +286,7 @@ const CentralGarage = () => {
           <Search size={16} className="search-icon" />
           <input
             type="text"
-            placeholder="Search by plate, model, or SRO…"
+            placeholder="Search by plate or equipment…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -338,7 +324,7 @@ const CentralGarage = () => {
                 <td colSpan="8" className="text-center empty-row">
                   {rangeActive
                     ? `No jobs registered ${formatRangeLabel(dateRange)}.`
-                    : `No vehicles found. ${isManager ? 'Register one to get started.' : ''}`}
+                    : `No equipment registered. ${canEdit ? 'Register one to get started.' : ''}`}
                 </td>
               </tr>
             ) : filteredVehicles.map((v) => (
@@ -348,27 +334,19 @@ const CentralGarage = () => {
                 onClick={() => setSelectedVehicle(v)}
                 title="Click to view details"
               >
-                <td>
-                  <span className={`priority-badge table-priority ${priorityClass(v.priority)}`}>{v.priority}</span>
-                </td>
+                <td><span className={`priority-badge table-priority ${priorityClass(v.priority)}`}>{v.priority}</span></td>
                 <td className="font-semibold plate-cell">{v.plate}</td>
                 <td>{v.model}</td>
                 <td className="text-muted">
                   {new Date(v.registeredDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </td>
                 <td><DurationCell startTime={v.registeredDate} endTime={v.completedDate} /></td>
-                <td>
-                  <span className={`status-badge ${v.status === 'Completed' ? 'success' : 'warning'}`}>{v.status}</span>
-                </td>
+                <td><span className={`status-badge ${v.status === 'Completed' ? 'success' : 'warning'}`}>{v.status}</span></td>
                 <td className="text-muted">{v.receivingInspector || '—'}</td>
                 <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
-                  <button className="view-btn" onClick={() => setSelectedVehicle(v)} title="View details">
-                    <Eye size={15} />
-                  </button>
-                  {isManager && (
-                    <button className="delete-row-btn" onClick={(e) => handleDelete(e, v.id)} title="Delete record">
-                      <Trash2 size={15} />
-                    </button>
+                  <button className="view-btn" onClick={() => setSelectedVehicle(v)} title="View details"><Eye size={15} /></button>
+                  {canEdit && (
+                    <button className="delete-row-btn" onClick={(e) => handleDelete(e, v.id)} title="Delete record"><Trash2 size={15} /></button>
                   )}
                   <ChevronRight size={15} className="row-arrow" />
                 </td>
@@ -381,22 +359,12 @@ const CentralGarage = () => {
       {showAddModal && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
           <div className="modal-content">
-            <h2>Register Vehicle for Maintenance</h2>
+            <h2>Register Equipment for Site Maintenance</h2>
             <form onSubmit={handleAddSubmit}>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Plate Number</label>
+                  <label>Plate / Equipment ID</label>
                   <input required type="text" value={newVehicle.plate} onChange={(e) => setNewVehicle({ ...newVehicle, plate: e.target.value })} placeholder="e.g. AA-12345" />
-                </div>
-                <div className="form-group">
-                  <label>SRO No.</label>
-                  <input required type="text" value={newVehicle.sroNumber} onChange={(e) => setNewVehicle({ ...newVehicle, sroNumber: e.target.value })} placeholder="e.g. 54321" />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Vehicle / Equipment Model</label>
-                  <input required type="text" value={newVehicle.model} onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })} placeholder="e.g. CAT 320 Excavator" />
                 </div>
                 <div className="form-group">
                   <label>Priority</label>
@@ -406,34 +374,14 @@ const CentralGarage = () => {
                 </div>
               </div>
               <div className="form-group">
-                <label>Workshop</label>
-                <select required value={newVehicle.workshop} onChange={(e) => setNewVehicle({ ...newVehicle, workshop: e.target.value })}>
-                  {GARAGE_WORKSHOPS.map((w) => (
-                    <option key={w.value} value={w.value}>{w.label}</option>
-                  ))}
-                </select>
+                <label>Equipment / Vehicle Model</label>
+                <input required type="text" value={newVehicle.model} onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })} placeholder="e.g. CAT 320 Excavator" />
               </div>
               <div className="form-group">
                 <label>Maintenance Type</label>
                 <div className="registration-type-choice" role="radiogroup" aria-label="Maintenance type">
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={newVehicle.maintenanceType === 'major'}
-                    className={`type-choice-btn type-major ${newVehicle.maintenanceType === 'major' ? 'selected' : ''}`}
-                    onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'major' })}
-                  >
-                    Major
-                  </button>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={newVehicle.maintenanceType === 'minor'}
-                    className={`type-choice-btn type-minor ${newVehicle.maintenanceType === 'minor' ? 'selected' : ''}`}
-                    onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'minor' })}
-                  >
-                    Minor
-                  </button>
+                  <button type="button" role="radio" aria-checked={newVehicle.maintenanceType === 'major'} className={`type-choice-btn type-major ${newVehicle.maintenanceType === 'major' ? 'selected' : ''}`} onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'major' })}>Major</button>
+                  <button type="button" role="radio" aria-checked={newVehicle.maintenanceType === 'minor'} className={`type-choice-btn type-minor ${newVehicle.maintenanceType === 'minor' ? 'selected' : ''}`} onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'minor' })}>Minor</button>
                 </div>
               </div>
               <div className="form-group">
@@ -441,12 +389,16 @@ const CentralGarage = () => {
                 <textarea required value={newVehicle.reportedIssue} onChange={(e) => setNewVehicle({ ...newVehicle, reportedIssue: e.target.value })} rows="3" placeholder="Describe the problem…" />
               </div>
               <div className="form-group">
-                <label>Receiving Inspector</label>
-                <input required type="text" value={newVehicle.receivingInspector} onChange={(e) => setNewVehicle({ ...newVehicle, receivingInspector: e.target.value })} placeholder="Inspector who receives the vehicle" />
+                <label>Site Supervisor</label>
+                <input required type="text" value={newVehicle.siteSupervisor} onChange={(e) => setNewVehicle({ ...newVehicle, siteSupervisor: e.target.value })} placeholder="Supervisor receiving the equipment" />
+              </div>
+              <div className="form-group">
+                <label>Your Name (optional)</label>
+                <input type="text" value={newVehicle.siteOperatorName} onChange={(e) => setNewVehicle({ ...newVehicle, siteOperatorName: e.target.value })} placeholder={user?.name || 'Who is registering this job'} />
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary"><Plus size={15} /> Register Vehicle</button>
+                <button type="submit" className="btn-primary"><Plus size={15} /> Register Equipment</button>
               </div>
             </form>
           </div>
@@ -456,12 +408,20 @@ const CentralGarage = () => {
       {drawerVehicle && (
         <VehicleDetailDrawer
           vehicle={drawerVehicle}
+          variant="project"
           onClose={() => setSelectedVehicle(null)}
           onUpdate={handleVehicleUpdate}
+        />
+      )}
+
+      {showSiteLogin && (
+        <ProjectSiteLoginModal
+          project={{ id: projectId, name: projectName }}
+          onClose={() => setShowSiteLogin(false)}
         />
       )}
     </div>
   );
 };
 
-export default CentralGarage;
+export default ProjectGarageDetail;
