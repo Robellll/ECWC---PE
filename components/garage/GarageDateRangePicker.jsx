@@ -7,7 +7,13 @@ import { formatRangeLabel, isRangeComplete, normalizeRange } from '@/lib/date-ra
 import 'react-day-picker/style.css';
 import './GarageDateRangePicker.css';
 
-export default function GarageDateRangePicker({ value, onChange }) {
+export default function GarageDateRangePicker({
+  value,
+  onChange,
+  label = 'Report Period',
+  popoverTitle = 'Select completion date range',
+  popoverHint = 'Click a start date, then an end date',
+}) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value ?? { from: undefined, to: undefined });
   const ref = useRef(null);
@@ -42,7 +48,7 @@ export default function GarageDateRangePicker({ value, onChange }) {
 
   return (
     <div className="garage-date-range" ref={ref}>
-      <span className="maintenance-type-label">Report Period</span>
+      <span className="maintenance-type-label">{label}</span>
       <button
         type="button"
         className={`date-range-trigger ${active ? 'active' : ''}`}
@@ -69,8 +75,8 @@ export default function GarageDateRangePicker({ value, onChange }) {
 
       {open && (
         <div className="date-range-popover">
-          <p className="date-range-popover-title">Select completion date range</p>
-          <p className="date-range-popover-hint">Click a start date, then an end date</p>
+          <p className="date-range-popover-title">{popoverTitle}</p>
+          <p className="date-range-popover-hint">{popoverHint}</p>
           <DayPicker
             mode="range"
             weekStartsOn={1}

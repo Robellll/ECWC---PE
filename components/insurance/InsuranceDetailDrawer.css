@@ -540,6 +540,163 @@
   background: rgba(239, 68, 68, 0.08);
 }
 
+.drawer-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(117, 200, 38, 0.35);
+  background: rgba(117, 200, 38, 0.08);
+  color: rgb(72, 150, 18);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.drawer-edit-btn:hover {
+  background: rgba(117, 200, 38, 0.16);
+  border-color: rgba(117, 200, 38, 0.5);
+}
+
+.ins-registration-edit {
+  background: var(--glass-bg, rgba(117, 200, 38, 0.04));
+  border: 1px solid rgba(117, 200, 38, 0.2);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.ins-edit-title {
+  margin-bottom: 0.85rem;
+}
+
+.ins-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.ins-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ins-edit-field-full {
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+}
+
+.ins-edit-field label,
+.ins-edit-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ins-edit-field input,
+.ins-edit-field select,
+.ins-edit-field textarea {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  background: var(--bg-card);
+}
+
+.ins-edit-field input:focus,
+.ins-edit-field select:focus,
+.ins-edit-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow-soft);
+}
+
+.ins-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.ins-edit-actions .btn-cancel {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.ins-edit-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.ins-remove-photo-btn {
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.photo-upload-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.photo-input-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+.photo-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 8px;
+  border: 1px dashed var(--border-color);
+  background: var(--bg-main);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.photo-preview-thumb {
+  max-width: 220px;
+  max-height: 150px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  object-fit: cover;
+}
+
+@media (max-width: 640px) {
+  .ins-edit-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .ins-accident-photo-wrap {
   margin-bottom: 0.25rem;
 }

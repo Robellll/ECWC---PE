@@ -13,6 +13,8 @@ import {
   getDaysSinceTier,
   formatDaysSinceLabel,
 } from '@/lib/insurance';
+import { isCompletedInRange, isRangeComplete, formatRangeLabel } from '@/lib/date-range';
+import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import InsuranceDetailDrawer from '@/components/insurance/InsuranceDetailDrawer';
 import './Insurance.css';
 
@@ -121,6 +123,7 @@ const Insurance = () => {
   const [sortColumn, setSortColumn] = useState('daysSince');
   const [sortDirection, setSortDirection] = useState('asc');
   const [sortAnimating, setSortAnimating] = useState(false);
+  const [dateRange, setDateRange] = useState(null);
 
   const loadClaims = useCallback(async () => {
     const data = await apiFetch('/api/insurance-claims');
@@ -132,10 +135,34 @@ const Insurance = () => {
 
   const drawerClaim = claims.find((c) => c.id === selectedClaim?.id) || selectedClaim;
 
-  const totalClaims = claims.length;
-  const openClaims = claims.filter((c) => c.status === 'Open').length;
-  const completedClaims = claims.filter((c) => c.status === 'Completed').length;
-  const pendingDocs = claims.filter((c) => c.stage === 'Document Pending').length;
+  const rangeActive = isRangeComplete(dateRange);
+
+  const completedInPeriod = useMemo(() => {
+    if (!rangeActive) return [];
+    return claims.filter((c) => isCompletedInRange(c, dateRange));
+  }, [claims, dateRange, rangeActive]);
+
+  const rangeFilteredClaims = useMemo(() => {
+    if (!rangeActive) return claims;
+    return claims.filter((c) => isCompletedInRange(c, dateRange));
+  }, [claims, dateRange, rangeActive]);
+
+  const totalClaims = rangeActive ? rangeFilteredClaims.length : claims.length;
+  const openClaims = rangeActive
+    ? 0
+    : claims.filter((c) => c.status === 'Open').length;
+  const completedClaims = rangeActive
+    ? rangeFilteredClaims.length
+    : claims.filter((c) => c.status === 'Completed').length;
+  const pendingDocs = rangeActive
+    ? rangeFilteredClaims.filter((c) => c.stage === 'Document Pending').length
+    : claims.filter((c) => c.stage === 'Document Pending').length;
+  const collisionInPeriod = rangeActive
+    ? completedInPeriod.filter((c) => c.accidentType === 'Collision').length
+    : null;
+  const rolloverInPeriod = rangeActive
+    ? completedInPeriod.filter((c) => c.accidentType === 'Rollover').length
+    : null;
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
@@ -223,7 +250,8 @@ const Insurance = () => {
         statusFilter === 'All' ||
         (statusFilter === 'Open' && c.status === 'Open') ||
         (statusFilter === 'Completed' && c.status === 'Completed');
-      return matchSearch && matchStatus;
+      const matchRange = !rangeActive || isCompletedInRange(c, dateRange);
+      return matchSearch && matchStatus && matchRange;
     });
 
     return sortTableData(filtered, {
@@ -232,7 +260,7 @@ const Insurance = () => {
       type: columnTypeMap[sortColumn],
       getValue: getSortValue,
     });
-  }, [claims, search, statusFilter, sortColumn, sortDirection, columnTypeMap]);
+  }, [claims, search, statusFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
 
   const stageClass = (s) => {
     const map = {
@@ -265,22 +293,43 @@ const Insurance = () => {
         )}
       </div>
 
+      <div className="insurance-report-toolbar">
+        <span className="insurance-report-label">Claims Report</span>
+        <GarageDateRangePicker
+          value={dateRange}
+          onChange={setDateRange}
+          popoverTitle="Select claim completion date range"
+          popoverHint="Shows claims completed between the selected dates"
+        />
+      </div>
+
+      {rangeActive && (
+        <p className="date-range-hint">
+          Showing claims completed {formatRangeLabel(dateRange)}
+          {statusFilter !== 'All' && ` · ${statusFilter} only`}
+        </p>
+      )}
+
       <div className="stats-row">
         <div className="stat-card">
-          <div className="stat-card-title">Total Incidents</div>
-          <div className="stat-card-value">{totalClaims}</div>
+          <div className="stat-card-title">{rangeActive ? 'Completed in Period' : 'Total Incidents'}</div>
+          <div className="stat-card-value">{rangeActive ? completedClaims : totalClaims}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-title">Active Claims</div>
-          <div className="stat-card-value warning">{openClaims}</div>
+          <div className="stat-card-title">{rangeActive ? 'Collision' : 'Active Claims'}</div>
+          <div className={`stat-card-value ${rangeActive ? '' : 'warning'}`}>
+            {rangeActive ? collisionInPeriod : openClaims}
+          </div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-title">Document Pending</div>
-          <div className="stat-card-value">{pendingDocs}</div>
+          <div className="stat-card-title">{rangeActive ? 'Rollover' : 'Document Pending'}</div>
+          <div className="stat-card-value">{rangeActive ? rolloverInPeriod : pendingDocs}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-title">Completed</div>
-          <div className="stat-card-value success">{completedClaims}</div>
+          <div className="stat-card-title">{rangeActive ? 'Period Total' : 'Completed'}</div>
+          <div className={`stat-card-value ${rangeActive ? '' : 'success'}`}>
+            {rangeActive ? completedInPeriod.length : completedClaims}
+          </div>
         </div>
       </div>
 
@@ -328,7 +377,9 @@ const Insurance = () => {
             {filteredClaims.length === 0 ? (
               <tr>
                 <td colSpan="5" className="empty-table-cell">
-                  No insurance claims found. {isInsuranceEditor && 'Report an accident to get started.'}
+                  {rangeActive
+                    ? `No claims completed ${formatRangeLabel(dateRange)}.`
+                    : `No insurance claims found. ${isInsuranceEditor ? 'Report an accident to get started.' : ''}`}
                 </td>
               </tr>
             ) : (

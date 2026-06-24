@@ -24,6 +24,47 @@
   flex-shrink: 0;
 }
 
+.insurance-report-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 30;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  animation: fadeInUp 0.4s ease both;
+}
+
+.insurance-report-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.insurance-report-toolbar .garage-date-range {
+  margin-left: auto;
+}
+
+.insurance-container .stats-row {
+  position: relative;
+  z-index: 1;
+}
+
+.insurance-container .date-range-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: -0.35rem 0 0.25rem;
+  animation: fadeInUp 0.4s ease both;
+}
+
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }

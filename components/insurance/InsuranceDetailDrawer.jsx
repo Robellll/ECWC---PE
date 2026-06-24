@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import {
   X, Clock, AlertTriangle, CheckCircle2, Circle, MessageSquarePlus,
   Save, Lock, FileText, Calendar, Flag, ArrowRight, User, MapPin,
-  DollarSign, Trash2, ZoomIn, Loader2,
+  DollarSign, Trash2, ZoomIn, Loader2, Pencil, ImagePlus,
 } from 'lucide-react';
 import { INSURANCE_STAGES } from '@/lib/constants';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -14,9 +14,12 @@ import {
   isValidCompensation,
   isValidStaffName,
   INSURANCE_DOC_FIELDS,
+  ACCIDENT_TYPES,
   getDaysSinceAccident,
   getDaysSinceTier,
   formatDaysSinceLabel,
+  readImageFileAsDataUrl,
+  claimToEditForm,
 } from '@/lib/insurance';
 import './InsuranceDetailDrawer.css';
 
@@ -107,12 +110,18 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
   const [displayStage, setDisplayStage] = useState(claim.stage);
   const [advancing, setAdvancing] = useState(false);
   const [docSaving, setDocSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState(() => claimToEditForm(claim));
+  const [editError, setEditError] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
   const [docs, setDocs] = useState({
     policeReport: claim.policeReport,
     accidentForm: claim.accidentForm,
     licenseDoc: claim.licenseDoc,
   });
   const drawerRef = useRef(null);
+
+  // Reset editable fields only when opening a different claim (not on every field update).
   useEffect(() => {
     setNotes(claim.claimNotes || '');
     setNotesDirty(false);
@@ -125,6 +134,10 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
     });
     setCompleteError('');
     setDisplayStage(claim.stage);
+    setEditing(false);
+    setEditForm(claimToEditForm(claim));
+    setEditError('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when switching claims only
   }, [claim.id]);
 
   useEffect(() => {
@@ -233,8 +246,89 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
     onUpdate(updated);
   };
 
+  const handleStartEdit = () => {
+    setEditForm(claimToEditForm(claim));
+    setEditError('');
+    setEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditForm(claimToEditForm(claim));
+    setEditError('');
+    setEditing(false);
+  };
+
+  const handleEditPhotoChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await readImageFileAsDataUrl(file);
+      setEditForm((prev) => ({
+        ...prev,
+        accidentPhoto: dataUrl,
+        photoPreview: dataUrl,
+        photoChanged: true,
+        clearPhoto: false,
+      }));
+      setEditError('');
+    } catch (err) {
+      setEditError(err.message);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setEditForm((prev) => ({
+      ...prev,
+      accidentPhoto: null,
+      photoPreview: null,
+      photoChanged: true,
+      clearPhoto: true,
+    }));
+  };
+
+  const handleSaveRegistration = async () => {
+    setEditError('');
+    setEditSaving(true);
+    try {
+      const payload = {
+        vehicleType: editForm.vehicleType,
+        plate: editForm.plate,
+        projectName: editForm.projectName,
+        driverOperator: editForm.driverOperator,
+        accidentDate: editForm.accidentDate,
+        policeReport: editForm.policeReport,
+        accidentForm: editForm.accidentForm,
+        licenseDoc: editForm.licenseDoc,
+        accidentType: editForm.accidentType,
+        accidentTypeOther: editForm.accidentTypeOther,
+        accidentDescription: editForm.accidentDescription,
+        clearPhoto: editForm.clearPhoto,
+      };
+      if (editForm.photoChanged && !editForm.clearPhoto) {
+        payload.accidentPhoto = editForm.accidentPhoto;
+      }
+      const updated = await apiFetch(`/api/insurance-claims/${claim.id}/registration`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      onUpdate(updated);
+      setDocs({
+        policeReport: updated.policeReport,
+        accidentForm: updated.accidentForm,
+        licenseDoc: updated.licenseDoc,
+      });
+      setEditing(false);
+    } catch (err) {
+      setEditError(err.message || 'Could not save changes');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const canEditRegistration = isInsuranceEditor && !editing;
+
   const currentStageIdx = INSURANCE_STAGES.indexOf(displayStage);
-  const canAdvance = isInsuranceEditor && claim.status !== 'Completed' && currentStageIdx < INSURANCE_STAGES.length - 2 && !advancing;
+  const canAdvance = isInsuranceEditor && !editing && claim.status !== 'Completed' && currentStageIdx < INSURANCE_STAGES.length - 2 && !advancing;
   const atUnderMaintenance = displayStage === 'Under Maintenance';
   const canComplete =
     isInsuranceEditor &&
@@ -257,6 +351,11 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
             <span className={`status-badge ${claim.status === 'Completed' ? 'success' : 'warning'}`}>
               {claim.status === 'Completed' ? 'Completed' : 'Open'}
             </span>
+            {canEditRegistration && (
+              <button type="button" className="drawer-edit-btn" onClick={handleStartEdit} title="Edit registration">
+                <Pencil size={16} />
+              </button>
+            )}
             {onDelete && (
               <button type="button" className="drawer-delete-btn" onClick={onDelete} title="Delete claim">
                 <Trash2 size={16} />
@@ -269,6 +368,145 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
         </div>
 
         <div className="drawer-body">
+          {editing ? (
+            <div className="ins-registration-edit">
+              <div className="detail-section-title ins-edit-title">
+                <Pencil size={15} />
+                Edit Registration
+              </div>
+              <div className="ins-edit-grid">
+                <div className="ins-edit-field">
+                  <label htmlFor="edit-vehicleType">Make &amp; Model</label>
+                  <input
+                    id="edit-vehicleType"
+                    type="text"
+                    value={editForm.vehicleType}
+                    onChange={(e) => setEditForm({ ...editForm, vehicleType: e.target.value })}
+                  />
+                </div>
+                <div className="ins-edit-field">
+                  <label htmlFor="edit-plate">Plate No.</label>
+                  <input
+                    id="edit-plate"
+                    type="text"
+                    value={editForm.plate}
+                    onChange={(e) => setEditForm({ ...editForm, plate: e.target.value })}
+                  />
+                </div>
+                <div className="ins-edit-field">
+                  <label htmlFor="edit-project">Project</label>
+                  <input
+                    id="edit-project"
+                    type="text"
+                    value={editForm.projectName}
+                    onChange={(e) => setEditForm({ ...editForm, projectName: e.target.value })}
+                  />
+                </div>
+                <div className="ins-edit-field">
+                  <label htmlFor="edit-driver">Driver / Operator</label>
+                  <input
+                    id="edit-driver"
+                    type="text"
+                    value={editForm.driverOperator}
+                    onChange={(e) => setEditForm({ ...editForm, driverOperator: e.target.value })}
+                  />
+                </div>
+                <div className="ins-edit-field">
+                  <label htmlFor="edit-accidentDate">Date of Accident</label>
+                  <input
+                    id="edit-accidentDate"
+                    type="date"
+                    value={editForm.accidentDate}
+                    onChange={(e) => setEditForm({ ...editForm, accidentDate: e.target.value })}
+                  />
+                </div>
+                <div className="ins-edit-field">
+                  <label htmlFor="edit-accidentType">Accident Type</label>
+                  <select
+                    id="edit-accidentType"
+                    value={editForm.accidentType}
+                    onChange={(e) => setEditForm({ ...editForm, accidentType: e.target.value })}
+                  >
+                    {ACCIDENT_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {editForm.accidentType === 'other' && (
+                <div className="ins-edit-field ins-edit-field-full">
+                  <label htmlFor="edit-accidentTypeOther">Specify Accident Type</label>
+                  <input
+                    id="edit-accidentTypeOther"
+                    type="text"
+                    value={editForm.accidentTypeOther}
+                    onChange={(e) => setEditForm({ ...editForm, accidentTypeOther: e.target.value })}
+                  />
+                </div>
+              )}
+              <div className="ins-edit-field ins-edit-field-full">
+                <span className="ins-edit-label">Documents on File</span>
+                <div className="ins-doc-check-row">
+                  {INSURANCE_DOC_FIELDS.map(({ key, label }) => (
+                    <label key={key} className={`ins-doc-chip ${editForm[key] ? 'checked' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editForm[key])}
+                        onChange={() => setEditForm({ ...editForm, [key]: !editForm[key] })}
+                      />
+                      <span className="ins-doc-chip-label">{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="ins-edit-field ins-edit-field-full">
+                <label htmlFor="edit-description">Accident Description</label>
+                <textarea
+                  id="edit-description"
+                  rows={4}
+                  value={editForm.accidentDescription}
+                  onChange={(e) => setEditForm({ ...editForm, accidentDescription: e.target.value })}
+                />
+              </div>
+              <div className="ins-edit-field ins-edit-field-full">
+                <span className="ins-edit-label">Accident Photo</span>
+                <div className="photo-upload-zone">
+                  <input
+                    id="edit-accidentPhoto"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleEditPhotoChange}
+                    className="photo-input-hidden"
+                  />
+                  <div className="ins-edit-photo-actions">
+                    <label htmlFor="edit-accidentPhoto" className="photo-upload-btn">
+                      <ImagePlus size={18} />
+                      {editForm.photoPreview ? 'Change photo' : 'Upload photo'}
+                    </label>
+                    {editForm.photoPreview && (
+                      <button type="button" className="ins-remove-photo-btn" onClick={handleRemovePhoto}>
+                        Remove photo
+                      </button>
+                    )}
+                  </div>
+                  {editForm.photoPreview && (
+                    <img src={editForm.photoPreview} alt="Accident preview" className="photo-preview-thumb" />
+                  )}
+                </div>
+              </div>
+              {editError && <p className="completion-error">{editError}</p>}
+              <div className="ins-edit-actions">
+                <button type="button" className="btn-cancel" onClick={handleCancelEdit} disabled={editSaving}>
+                  Cancel
+                </button>
+                <button type="button" className="save-notes-btn" onClick={handleSaveRegistration} disabled={editSaving}>
+                  {editSaving ? <Loader2 size={14} className="spin-icon" /> : <Save size={14} />}
+                  {editSaving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
           {claim.accidentPhoto ? (
             <div className="ins-accident-photo-wrap">
               <button type="button" className="ins-accident-photo-btn" onClick={() => setPhotoOpen(true)}>
@@ -343,6 +581,8 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
             </div>
             <p className="reported-issue-text">{claim.accidentDescription || 'No description provided.'}</p>
           </div>
+            </>
+          )}
 
           <div className="detail-section">
             <div className="detail-section-title">

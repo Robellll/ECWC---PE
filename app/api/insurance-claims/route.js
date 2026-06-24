@@ -1,7 +1,8 @@
 import { sql } from '@/lib/db.js';
 import { requireSession, requirePermission, jsonOk, jsonError } from '@/lib/api-helpers.js';
-import { mapInsuranceClaim } from '@/lib/mappers.js';
 import { validateAccidentPhoto } from '@/lib/insurance.js';
+import { fetchInsuranceClaimWithLogs } from '@/lib/insurance-claims.js';
+import { mapInsuranceClaim } from '@/lib/mappers.js';
 import { z } from 'zod';
 
 const createSchema = z.object({
@@ -21,15 +22,7 @@ const createSchema = z.object({
 });
 
 async function fetchClaimWithLogs(id) {
-  const rows = await sql`
-    SELECT c.*, COALESCE(NULLIF(TRIM(c.project_name), ''), p.name, '') AS project_name
-    FROM insurance_claims c
-    LEFT JOIN projects p ON p.id = c.project_id
-    WHERE c.id = ${id}
-  `;
-  if (!rows[0]) return null;
-  const logs = await sql`SELECT * FROM insurance_progress_logs WHERE claim_id = ${id} ORDER BY created_at`;
-  return mapInsuranceClaim(rows[0], logs);
+  return fetchInsuranceClaimWithLogs(id);
 }
 
 export async function GET() {
