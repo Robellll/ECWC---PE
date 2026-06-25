@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Plus, Search, Filter, X, ArrowUp, ArrowDown, ImagePlus } from 'lucide-react';
+import { Plus, Search, X, ArrowUp, ArrowDown, ImagePlus } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
 import { sortTableData, nextSortDirection } from '@/lib/table-sort';
@@ -14,15 +14,35 @@ import {
   formatDaysSinceLabel,
 } from '@/lib/insurance';
 import { isCompletedInRange, isRangeComplete, formatRangeLabel } from '@/lib/date-range';
+import { INSURANCE_STAGES } from '@/lib/constants';
 import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import InsuranceDetailDrawer from '@/components/insurance/InsuranceDetailDrawer';
+import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
 import './Insurance.css';
+
+const STAGE_CARD_LABELS = {
+  'Reported/Notified': 'Reported',
+  'Document Pending': 'Docs Pending',
+  'Insurance Inspection': 'Inspection',
+  Bid: 'Bid',
+  'Under Maintenance': 'Maintenance',
+  Completed: 'Completed',
+};
+
+const STAGE_CLASS_MAP = {
+  'Reported/Notified': 'stage-reported',
+  'Document Pending': 'stage-docs',
+  'Insurance Inspection': 'stage-inspect',
+  Bid: 'stage-bid',
+  'Under Maintenance': 'stage-maintenance',
+  Completed: 'stage-completed',
+};
 
 const TABLE_COLUMNS = [
   { key: 'vehicleType', label: 'Make & Model', type: 'text' },
   { key: 'plate', label: 'Plate No.', type: 'text' },
   { key: 'accidentType', label: 'Accident Type', type: 'text' },
-  { key: 'daysSince', label: 'Days Since', type: 'number' },
+  { key: 'daysSince', label: 'Duration', type: 'number' },
   { key: 'stage', label: 'Stage', type: 'text' },
 ];
 
@@ -115,7 +135,7 @@ const Insurance = () => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [stageFilter, setStageFilter] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [newClaim, setNewClaim] = useState(emptyForm);
@@ -137,32 +157,36 @@ const Insurance = () => {
 
   const rangeActive = isRangeComplete(dateRange);
 
-  const completedInPeriod = useMemo(() => {
-    if (!rangeActive) return [];
-    return claims.filter((c) => isCompletedInRange(c, dateRange));
-  }, [claims, dateRange, rangeActive]);
-
   const rangeFilteredClaims = useMemo(() => {
     if (!rangeActive) return claims;
     return claims.filter((c) => isCompletedInRange(c, dateRange));
   }, [claims, dateRange, rangeActive]);
 
-  const totalClaims = rangeActive ? rangeFilteredClaims.length : claims.length;
-  const openClaims = rangeActive
-    ? 0
-    : claims.filter((c) => c.status === 'Open').length;
-  const completedClaims = rangeActive
-    ? rangeFilteredClaims.length
-    : claims.filter((c) => c.status === 'Completed').length;
-  const pendingDocs = rangeActive
-    ? rangeFilteredClaims.filter((c) => c.stage === 'Document Pending').length
-    : claims.filter((c) => c.stage === 'Document Pending').length;
-  const collisionInPeriod = rangeActive
-    ? completedInPeriod.filter((c) => c.accidentType === 'Collision').length
-    : null;
-  const rolloverInPeriod = rangeActive
-    ? completedInPeriod.filter((c) => c.accidentType === 'Rollover').length
-    : null;
+  const baseClaims = rangeActive ? rangeFilteredClaims : claims;
+  const totalClaims = baseClaims.length;
+
+  const stageCounts = useMemo(() => {
+    const counts = Object.fromEntries(INSURANCE_STAGES.map((s) => [s, 0]));
+    baseClaims.forEach((c) => {
+      if (counts[c.stage] !== undefined) counts[c.stage] += 1;
+    });
+    return counts;
+  }, [baseClaims]);
+
+  const summaryCards = useMemo(() => {
+    const totalLabel = rangeActive ? 'Completed in Period' : 'Total Incidents';
+    const stageCards = INSURANCE_STAGES.map((stage) => ({
+      id: stage,
+      label: STAGE_CARD_LABELS[stage] || stage,
+      value: stageCounts[stage] ?? 0,
+      stageClass: STAGE_CLASS_MAP[stage] || 'stage-reported',
+      valueClass: stage === 'Completed' ? 'success' : stage === 'Document Pending' ? 'warning' : '',
+    }));
+    return [
+      { id: 'total', label: totalLabel, value: totalClaims, isTotal: true },
+      ...stageCards,
+    ];
+  }, [rangeActive, totalClaims, stageCounts]);
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
@@ -246,12 +270,9 @@ const Insurance = () => {
         (c.driverOperator || '').toLowerCase().includes(q) ||
         (c.projectName || '').toLowerCase().includes(q) ||
         (c.accidentDescription || '').toLowerCase().includes(q);
-      const matchStatus =
-        statusFilter === 'All' ||
-        (statusFilter === 'Open' && c.status === 'Open') ||
-        (statusFilter === 'Completed' && c.status === 'Completed');
+      const matchStage = !stageFilter || c.stage === stageFilter;
       const matchRange = !rangeActive || isCompletedInRange(c, dateRange);
-      return matchSearch && matchStatus && matchRange;
+      return matchSearch && matchStage && matchRange;
     });
 
     return sortTableData(filtered, {
@@ -260,19 +281,9 @@ const Insurance = () => {
       type: columnTypeMap[sortColumn],
       getValue: getSortValue,
     });
-  }, [claims, search, statusFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
+  }, [claims, search, stageFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
 
-  const stageClass = (s) => {
-    const map = {
-      'Reported/Notified': 'stage-reported',
-      'Document Pending': 'stage-docs',
-      'Insurance Inspection': 'stage-inspect',
-      Bid: 'stage-bid',
-      'Under Maintenance': 'stage-maintenance',
-      Completed: 'stage-completed',
-    };
-    return map[s] || 'stage-reported';
-  };
+  const stageClass = (s) => STAGE_CLASS_MAP[s] || 'stage-reported';
 
   if (loading) {
     return <div className="garage-container insurance-container"><p className="page-subtitle">Loading insurance claims…</p></div>;
@@ -306,32 +317,16 @@ const Insurance = () => {
       {rangeActive && (
         <p className="date-range-hint">
           Showing claims completed {formatRangeLabel(dateRange)}
-          {statusFilter !== 'All' && ` · ${statusFilter} only`}
+          {stageFilter && ` · ${STAGE_CARD_LABELS[stageFilter] || stageFilter} only`}
         </p>
       )}
 
-      <div className="stats-row">
-        <div className="stat-card">
-          <div className="stat-card-title">{rangeActive ? 'Completed in Period' : 'Total Incidents'}</div>
-          <div className="stat-card-value">{rangeActive ? completedClaims : totalClaims}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-title">{rangeActive ? 'Collision' : 'Active Claims'}</div>
-          <div className={`stat-card-value ${rangeActive ? '' : 'warning'}`}>
-            {rangeActive ? collisionInPeriod : openClaims}
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-title">{rangeActive ? 'Rollover' : 'Document Pending'}</div>
-          <div className="stat-card-value">{rangeActive ? rolloverInPeriod : pendingDocs}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card-title">{rangeActive ? 'Period Total' : 'Completed'}</div>
-          <div className={`stat-card-value ${rangeActive ? '' : 'success'}`}>
-            {rangeActive ? completedInPeriod.length : completedClaims}
-          </div>
-        </div>
-      </div>
+      <FilterSummaryCards
+        cards={summaryCards}
+        selectedId={stageFilter}
+        onSelect={setStageFilter}
+        className="filter-summary-row--stages"
+      />
 
       <div className="table-controls">
         <div className="search-bar">
@@ -342,18 +337,6 @@ const Insurance = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
-        <div className="filter-group">
-          <Filter size={16} />
-          <button type="button" className={`filter-tab ${statusFilter === 'All' ? 'active' : ''}`} onClick={() => setStatusFilter('All')}>
-            All
-          </button>
-          <button type="button" className={`filter-tab ${statusFilter === 'Open' ? 'active' : ''}`} onClick={() => setStatusFilter('Open')}>
-            Active
-          </button>
-          <button type="button" className={`filter-tab ${statusFilter === 'Completed' ? 'active' : ''}`} onClick={() => setStatusFilter('Completed')}>
-            Completed
-          </button>
         </div>
       </div>
 
@@ -378,8 +361,8 @@ const Insurance = () => {
               <tr>
                 <td colSpan="5" className="empty-table-cell">
                   {rangeActive
-                    ? `No claims completed ${formatRangeLabel(dateRange)}.`
-                    : `No insurance claims found. ${isInsuranceEditor ? 'Report an accident to get started.' : ''}`}
+                    ? `No claims completed ${formatRangeLabel(dateRange)}${stageFilter ? ` at ${STAGE_CARD_LABELS[stageFilter] || stageFilter}` : ''}.`
+                    : `No insurance claims found${stageFilter ? ` at ${STAGE_CARD_LABELS[stageFilter] || stageFilter}` : ''}. ${isInsuranceEditor && !stageFilter ? 'Report an accident to get started.' : ''}`}
                 </td>
               </tr>
             ) : (

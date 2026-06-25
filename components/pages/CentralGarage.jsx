@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Search, Filter, Trash2, Clock, ChevronRight, Eye, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Search, Trash2, Clock, ChevronRight, Eye, ArrowUp, ArrowDown } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDuration } from '@/hooks/useDuration';
 import { apiFetch } from '@/lib/api-client';
@@ -11,6 +11,7 @@ import { sortTableData, nextSortDirection } from '@/lib/table-sort';
 import { isRegisteredInRange, isRangeComplete, formatRangeLabel } from '@/lib/date-range';
 import VehicleDetailDrawer from '@/components/garage/VehicleDetailDrawer';
 import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
+import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
 import './Garage.css';
 
 const PRIORITY_ORDER = { Critical: 0, High: 1, Normal: 2, Low: 3 };
@@ -106,7 +107,7 @@ const CentralGarage = () => {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [cardFilter, setCardFilter] = useState(null);
   const [maintenanceTypeFilter, setMaintenanceTypeFilter] = useState('all');
   const [dateRange, setDateRange] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -149,6 +150,33 @@ const CentralGarage = () => {
   const inProgress = typeFilteredVehicles.filter((v) => v.status === 'In Progress').length;
   const completed = typeFilteredVehicles.filter((v) => v.status === 'Completed').length;
   const completionRate = totalRegistered === 0 ? 0 : Math.round((completed / totalRegistered) * 100);
+
+  const summaryCards = useMemo(() => [
+    {
+      id: 'total',
+      label: rangeActive ? 'Registered in Period' : 'Total Registered',
+      value: totalRegistered,
+      isTotal: true,
+    },
+    {
+      id: 'In Progress',
+      label: 'In Progress',
+      value: inProgress,
+      valueClass: 'warning',
+    },
+    {
+      id: 'Completed',
+      label: 'Completed',
+      value: completed,
+      valueClass: 'success',
+    },
+    {
+      id: 'completion-rate',
+      label: 'Completion Rate',
+      value: `${completionRate}%`,
+      isStatic: true,
+    },
+  ], [rangeActive, totalRegistered, inProgress, completed, completionRate]);
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
@@ -198,7 +226,7 @@ const CentralGarage = () => {
         v.plate.toLowerCase().includes(search.toLowerCase()) ||
         v.model.toLowerCase().includes(search.toLowerCase()) ||
         (v.sroNumber || '').toLowerCase().includes(search.toLowerCase());
-      const matchStatus = statusFilter === 'All' || v.status === statusFilter;
+      const matchStatus = !cardFilter || v.status === cardFilter;
       const matchType =
         maintenanceTypeFilter === 'all' ||
         v.maintenanceType === maintenanceTypeFilter;
@@ -212,7 +240,7 @@ const CentralGarage = () => {
       type: columnTypeMap[sortColumn],
       getValue: getSortValue,
     });
-  }, [vehicles, search, statusFilter, maintenanceTypeFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
+  }, [vehicles, search, cardFilter, maintenanceTypeFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
 
   const priorityClass = (p) => {
     const map = { Low: 'priority-low', Normal: 'priority-normal', High: 'priority-high', Critical: 'priority-critical' };
@@ -276,24 +304,11 @@ const CentralGarage = () => {
         </p>
       )}
 
-      <div className="garage-summary">
-        <div className="summary-card">
-          <div className="summary-title">{rangeActive ? 'Registered in Period' : 'Total Registered'}</div>
-          <div className="summary-value">{totalRegistered}</div>
-        </div>
-        <div className="summary-card">
-          <div className="summary-title">In Progress</div>
-          <div className="summary-value warning">{inProgress}</div>
-        </div>
-        <div className="summary-card">
-          <div className="summary-title">Completed</div>
-          <div className="summary-value success">{completed}</div>
-        </div>
-        <div className="summary-card">
-          <div className="summary-title">Completion Rate</div>
-          <div className="summary-value">{completionRate}%</div>
-        </div>
-      </div>
+      <FilterSummaryCards
+        cards={summaryCards}
+        selectedId={cardFilter}
+        onSelect={setCardFilter}
+      />
 
       <div className="garage-filters">
         <div className="search-bar">
@@ -304,14 +319,6 @@ const CentralGarage = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
-        <div className="filter-dropdown">
-          <Filter size={16} />
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="All">All Statuses</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Completed">Completed</option>
-          </select>
         </div>
       </div>
 

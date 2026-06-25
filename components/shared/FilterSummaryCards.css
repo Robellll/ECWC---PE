@@ -1,0 +1,106 @@
+.filter-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.filter-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 120px;
+  flex: 1 1 120px;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.filter-summary-card.is-total,
+.filter-summary-card.is-static {
+  cursor: default;
+}
+
+.filter-summary-card.is-total {
+  border-color: color-mix(in srgb, var(--accent) 25%, var(--border-color));
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-card));
+}
+
+.filter-summary-card.is-filter {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.filter-summary-card.is-filter:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.filter-summary-card.is-filter.selected {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgb(117, 200, 38), rgb(72, 150, 18));
+  box-shadow: 0 4px 16px rgba(117, 200, 38, 0.35);
+  transform: translateY(-1px);
+}
+
+.filter-summary-card.is-filter.selected .filter-summary-title,
+.filter-summary-card.is-filter.selected .filter-summary-value {
+  color: #fff;
+}
+
+.filter-summary-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+}
+
+.filter-summary-value {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.filter-summary-value.warning { color: #d97706; }
+.filter-summary-value.success { color: var(--accent-dark); }
+
+.filter-summary-card.is-filter.selected .filter-summary-value.warning,
+.filter-summary-card.is-filter.selected .filter-summary-value.success {
+  color: #fff;
+}
+
+/* Insurance stage-tinted cards (unselected) */
+.filter-summary-card.stage-reported { border-left: 3px solid #64748b; }
+.filter-summary-card.stage-docs { border-left: 3px solid #d97706; }
+.filter-summary-card.stage-inspect { border-left: 3px solid #2563eb; }
+.filter-summary-card.stage-bid { border-left: 3px solid #7c3aed; }
+.filter-summary-card.stage-maintenance { border-left: 3px solid #0891b2; }
+.filter-summary-card.stage-completed { border-left: 3px solid var(--accent-dark); }
+
+.filter-summary-row--stages .filter-summary-card {
+  min-width: 108px;
+  flex: 1 1 108px;
+}
+
+@media (max-width: 768px) {
+  .filter-summary-row--stages {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+  }
+  .filter-summary-row--stages .filter-summary-card {
+    flex: 0 0 auto;
+    min-width: 118px;
+  }
+}
