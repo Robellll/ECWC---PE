@@ -13,7 +13,7 @@ import {
   getDaysSinceTier,
   formatDaysSinceLabel,
 } from '@/lib/insurance';
-import { isCompletedInRange, isRangeComplete, formatRangeLabel } from '@/lib/date-range';
+import { isAccidentInRange, isRangeComplete, formatRangeLabel } from '@/lib/date-range';
 import { INSURANCE_STAGES } from '@/lib/constants';
 import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import InsuranceDetailDrawer from '@/components/insurance/InsuranceDetailDrawer';
@@ -159,7 +159,7 @@ const Insurance = () => {
 
   const rangeFilteredClaims = useMemo(() => {
     if (!rangeActive) return claims;
-    return claims.filter((c) => isCompletedInRange(c, dateRange));
+    return claims.filter((c) => isAccidentInRange(c, dateRange));
   }, [claims, dateRange, rangeActive]);
 
   const baseClaims = rangeActive ? rangeFilteredClaims : claims;
@@ -174,7 +174,7 @@ const Insurance = () => {
   }, [baseClaims]);
 
   const summaryCards = useMemo(() => {
-    const totalLabel = rangeActive ? 'Completed in Period' : 'Total Incidents';
+    const totalLabel = rangeActive ? 'Accidents in Period' : 'Total Incidents';
     const stageCards = INSURANCE_STAGES.map((stage) => ({
       id: stage,
       label: STAGE_CARD_LABELS[stage] || stage,
@@ -271,7 +271,7 @@ const Insurance = () => {
         (c.projectName || '').toLowerCase().includes(q) ||
         (c.accidentDescription || '').toLowerCase().includes(q);
       const matchStage = !stageFilter || c.stage === stageFilter;
-      const matchRange = !rangeActive || isCompletedInRange(c, dateRange);
+      const matchRange = !rangeActive || isAccidentInRange(c, dateRange);
       return matchSearch && matchStage && matchRange;
     });
 
@@ -309,14 +309,14 @@ const Insurance = () => {
         <GarageDateRangePicker
           value={dateRange}
           onChange={setDateRange}
-          popoverTitle="Select claim completion date range"
-          popoverHint="Shows claims completed between the selected dates"
+          popoverTitle="Select accident date range"
+          popoverHint="Shows all claims where the accident occurred between the selected dates (any stage)"
         />
       </div>
 
       {rangeActive && (
         <p className="date-range-hint">
-          Showing claims completed {formatRangeLabel(dateRange)}
+          Showing accidents that occurred {formatRangeLabel(dateRange)}
           {stageFilter && ` · ${STAGE_CARD_LABELS[stageFilter] || stageFilter} only`}
         </p>
       )}
@@ -361,7 +361,7 @@ const Insurance = () => {
               <tr>
                 <td colSpan="5" className="empty-table-cell">
                   {rangeActive
-                    ? `No claims completed ${formatRangeLabel(dateRange)}${stageFilter ? ` at ${STAGE_CARD_LABELS[stageFilter] || stageFilter}` : ''}.`
+                    ? `No accidents occurred ${formatRangeLabel(dateRange)}${stageFilter ? ` at ${STAGE_CARD_LABELS[stageFilter] || stageFilter}` : ''}.`
                     : `No insurance claims found${stageFilter ? ` at ${STAGE_CARD_LABELS[stageFilter] || stageFilter}` : ''}. ${isInsuranceEditor && !stageFilter ? 'Report an accident to get started.' : ''}`}
                 </td>
               </tr>
