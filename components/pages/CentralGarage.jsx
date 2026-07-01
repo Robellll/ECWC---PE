@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Search, Trash2, Clock, ChevronRight, Eye, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Trash2, Clock, ChevronRight, Eye, ArrowUp, ArrowDown } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDuration } from '@/hooks/useDuration';
 import { apiFetch } from '@/lib/api-client';
@@ -12,6 +12,7 @@ import { isRegisteredInRange, isRangeComplete, formatRangeLabel } from '@/lib/da
 import VehicleDetailDrawer from '@/components/garage/VehicleDetailDrawer';
 import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
+import SearchBar from '@/components/shared/SearchBar';
 import './Garage.css';
 
 const PRIORITY_ORDER = { Critical: 0, High: 1, Normal: 2, Low: 3 };
@@ -353,16 +354,13 @@ const CentralGarage = () => {
         onTotalReset={handleTotalReset}
       />
 
-      <div className="garage-filters">
-        <div className="search-bar">
-          <Search size={16} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search by plate, model, or SRO…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <div className="garage-search-wrap">
+        <SearchBar
+          variant="modern"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search by plate, model, or SRO…"
+        />
       </div>
 
       <div className="table-wrapper">

@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, User, ChevronRight, Key, Search } from 'lucide-react';
+import { Building2, User, ChevronRight, Key } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
 import ProjectSiteLoginModal from '@/components/garage/ProjectSiteLoginModal';
+import SearchBar from '@/components/shared/SearchBar';
 import './ProjectGarage.css';
 
 const ProjectGarage = () => {
@@ -62,16 +63,14 @@ const ProjectGarage = () => {
       ) : (
         <>
           <div className="pg-search-wrap">
-            <div className="pg-search-bar">
-              <Search size={16} className="pg-search-icon" aria-hidden="true" />
-              <input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search projects by name…"
-                aria-label="Search projects"
-              />
-            </div>
+            <SearchBar
+              className="pg-search-bar"
+              iconClassName="pg-search-icon"
+              value={search}
+              onChange={setSearch}
+              placeholder="Search projects by name…"
+              ariaLabel="Search projects"
+            />
           </div>
 
           {filteredProjects.length === 0 ? (

@@ -2,13 +2,14 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
-  Plus, Search, Filter, Trash2, Eye, HardHat, Info,
+  Plus, Filter, Trash2, Eye, HardHat, Info,
   ChevronRight, Upload, Table, AlertCircle, X, Check, Clipboard
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useProjects } from '@/hooks/useProjects';
 import { apiFetch } from '@/lib/api-client';
 import EquipmentDetailDrawer from '@/components/equipment/EquipmentDetailDrawer';
+import SearchBar from '@/components/shared/SearchBar';
 import './Equipment.css';
 
 const UNASSIGNED = 'Idle / Unassigned';
@@ -280,15 +281,11 @@ const Equipment = () => {
 
       {/* Filtering Options */}
       <div className="equipment-filters">
-        <div className="search-bar">
-          <Search size={16} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search by machinery code, name, or type…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchBar
+          value={search}
+          onChange={setSearch}
+          placeholder="Search by machinery code, name, or type…"
+        />
 
         <div className="filters-group">
           <div className="filter-dropdown">

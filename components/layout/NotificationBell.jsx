@@ -77,6 +77,17 @@ export default function NotificationBell() {
     }
   };
 
+  const handleClearAll = async (e) => {
+    e.stopPropagation();
+    if (notifications.length === 0) return;
+    try {
+      await apiFetch('/api/notifications/clear-all', { method: 'POST' });
+      setNotifications([]);
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <div className="notification-bell" ref={panelRef}>
       <button
@@ -96,7 +107,18 @@ export default function NotificationBell() {
         <div className="notification-panel" role="dialog" aria-label="Notifications">
           <div className="notification-panel-header">
             <span>Notifications</span>
-            {unreadCount > 0 && <span className="notification-unread-count">{unreadCount} new</span>}
+            <div className="notification-header-actions">
+              {unreadCount > 0 && <span className="notification-unread-count">{unreadCount} new</span>}
+              {notifications.length > 0 && (
+                <button
+                  type="button"
+                  className="notification-clear-all"
+                  onClick={handleClearAll}
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
           <div className="notification-list">
             {notifications.length === 0 ? (

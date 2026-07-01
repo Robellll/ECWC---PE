@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Plus, Search, Trash2, Clock, ChevronRight, Eye, ArrowUp, ArrowDown, LayoutGrid, Key,
+  Plus, Trash2, Clock, ChevronRight, Eye, ArrowUp, ArrowDown, LayoutGrid, Key,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDuration } from '@/hooks/useDuration';
@@ -14,6 +14,7 @@ import VehicleDetailDrawer from '@/components/garage/VehicleDetailDrawer';
 import ProjectSiteLoginModal from '@/components/garage/ProjectSiteLoginModal';
 import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
+import SearchBar from '@/components/shared/SearchBar';
 import './Garage.css';
 import './ProjectGarage.css';
 
@@ -341,16 +342,13 @@ const ProjectGarageDetail = ({ projectId }) => {
         onTotalReset={handleTotalReset}
       />
 
-      <div className="garage-filters">
-        <div className="search-bar">
-          <Search size={16} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search by plate or equipment…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <div className="garage-search-wrap">
+        <SearchBar
+          variant="modern"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search by plate or equipment…"
+        />
       </div>
 
       <div className="table-wrapper">

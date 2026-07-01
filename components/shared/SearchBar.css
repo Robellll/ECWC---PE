@@ -1,0 +1,119 @@
+.search-bar input,
+.pg-search-bar input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Hide native browser clear on search inputs (fallback) */
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+.search-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.search-clear-btn:hover {
+  color: var(--text-main);
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+}
+
+.search-bar .search-clear-btn,
+.pg-search-bar .search-clear-btn,
+.search-bar--modern .search-clear-btn {
+  margin-left: 0.1rem;
+}
+
+/* Modern centered search — garage dashboards & insurance */
+.search-bar--modern {
+  display: flex;
+  align-items: center;
+  flex: none;
+  width: 100%;
+  max-width: 400px;
+  padding: 0.6rem 1rem;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid color-mix(in srgb, var(--border-color) 85%, var(--text-muted));
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+  gap: 0.55rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-bar--modern input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+  color: var(--text-main);
+}
+
+.search-bar--modern:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-color));
+  box-shadow:
+    0 0 0 3px var(--accent-light),
+    0 2px 10px rgba(15, 23, 42, 0.06);
+}
+
+.search-bar--modern .search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.search-bar--modern input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.9;
+}
+
+.dark-theme .search-bar--modern {
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+}
+
+.dark-theme .search-bar--modern:focus-within {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent),
+    0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+.garage-search-wrap,
+.insurance-search-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 0.15rem 0 0.85rem;
+}
+
+.garage-search-wrap {
+  animation: fadeInUp 0.5s ease both;
+  animation-delay: 0.25s;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

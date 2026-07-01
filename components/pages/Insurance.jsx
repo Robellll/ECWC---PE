@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Plus, Search, X, ArrowUp, ArrowDown, ImagePlus } from 'lucide-react';
+import { Plus, X, ArrowUp, ArrowDown, ImagePlus } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
 import { sortTableData, nextSortDirection } from '@/lib/table-sort';
@@ -18,6 +18,7 @@ import { INSURANCE_STAGES } from '@/lib/constants';
 import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import InsuranceDetailDrawer from '@/components/insurance/InsuranceDetailDrawer';
 import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
+import SearchBar from '@/components/shared/SearchBar';
 import './Insurance.css';
 
 const STAGE_CARD_LABELS = {
@@ -376,16 +377,13 @@ const Insurance = () => {
         className="filter-summary-row--stages"
       />
 
-      <div className="table-controls">
-        <div className="search-bar">
-          <Search size={18} />
-          <input
-            type="text"
-            placeholder="Search plate, vehicle type, driver, project…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <div className="insurance-search-wrap">
+        <SearchBar
+          variant="modern"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search plate, vehicle type, driver, project…"
+        />
       </div>
 
       <div className="table-wrapper">

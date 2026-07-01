@@ -58,6 +58,30 @@
   color: #1f2937;
 }
 
+.notification-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.notification-clear-all {
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.15rem 0.35rem;
+  border-radius: 4px;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.notification-clear-all:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
 .notification-unread-count {
   font-size: 0.72rem;
   font-weight: 600;
@@ -151,4 +175,13 @@
 
 .dark-theme .notification-message {
   color: #e5e7eb;
+}
+
+.dark-theme .notification-clear-all {
+  color: #9ca3af;
+}
+
+.dark-theme .notification-clear-all:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
 }
