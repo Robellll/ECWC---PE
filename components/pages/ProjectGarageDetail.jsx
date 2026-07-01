@@ -80,6 +80,8 @@ const DurationCell = ({ startTime, endTime }) => {
   return <div className="duration-cell"><Clock size={13} /> {duration}</div>;
 };
 
+const IN_PROGRESS_CARD = 'In Progress';
+
 const emptyForm = () => ({
   plate: '',
   model: '',
@@ -100,6 +102,7 @@ const ProjectGarageDetail = ({ projectId }) => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [cardFilter, setCardFilter] = useState(null);
+  const [locationFilter, setLocationFilter] = useState(null);
   const [maintenanceTypeFilter, setMaintenanceTypeFilter] = useState('all');
   const [dateRange, setDateRange] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -138,6 +141,17 @@ const ProjectGarageDetail = ({ projectId }) => {
   const completed = typeFilteredVehicles.filter((v) => v.status === 'Completed').length;
   const completionRate = totalRegistered === 0 ? 0 : Math.round((completed / totalRegistered) * 100);
 
+  const inProgressVehicles = useMemo(
+    () => typeFilteredVehicles.filter((v) => v.status === 'In Progress'),
+    [typeFilteredVehicles],
+  );
+
+  const inProgressLocationCounts = useMemo(() => ({
+    on_site: inProgressVehicles.filter((v) => v.maintenanceLocation === 'on_site').length,
+    outsource: inProgressVehicles.filter((v) => v.maintenanceLocation === 'outsource').length,
+    central: inProgressVehicles.filter((v) => v.maintenanceLocation === 'central').length,
+  }), [inProgressVehicles]);
+
   const summaryCards = useMemo(() => [
     {
       id: 'total',
@@ -146,10 +160,16 @@ const ProjectGarageDetail = ({ projectId }) => {
       isTotal: true,
     },
     {
-      id: 'In Progress',
+      id: IN_PROGRESS_CARD,
       label: 'In Progress',
       value: inProgress,
       valueClass: 'warning',
+      subFilters: [
+        { id: 'on_site', label: 'On Site', value: inProgressLocationCounts.on_site },
+        { id: 'outsource', label: 'Outsource', value: inProgressLocationCounts.outsource },
+        { id: 'central', label: 'Central', value: inProgressLocationCounts.central },
+      ],
+      subFiltersLayout: 'compact',
     },
     {
       id: 'Completed',
@@ -163,12 +183,26 @@ const ProjectGarageDetail = ({ projectId }) => {
       value: `${completionRate}%`,
       isStatic: true,
     },
-  ], [rangeActive, totalRegistered, inProgress, completed, completionRate]);
+  ], [rangeActive, totalRegistered, inProgress, completed, completionRate, inProgressLocationCounts]);
 
-  const handleTotalReset = useCallback(() => setCardFilter(null), []);
+  const handleTotalReset = useCallback(() => {
+    setCardFilter(null);
+    setLocationFilter(null);
+  }, []);
 
   const handleCardSelect = useCallback((id) => {
-    setCardFilter((prev) => (prev === id ? null : id));
+    if (id === cardFilter) {
+      setCardFilter(null);
+      setLocationFilter(null);
+    } else {
+      setCardFilter(id);
+      if (id !== IN_PROGRESS_CARD) setLocationFilter(null);
+    }
+  }, [cardFilter]);
+
+  const handleLocationSubSelect = useCallback((_cardId, subId) => {
+    setCardFilter(IN_PROGRESS_CARD);
+    setLocationFilter((prev) => (prev === subId ? null : subId));
   }, []);
 
   const handleDelete = async (e, id) => {
@@ -222,9 +256,11 @@ const ProjectGarageDetail = ({ projectId }) => {
         v.plate.toLowerCase().includes(search.toLowerCase()) ||
         v.model.toLowerCase().includes(search.toLowerCase());
       const matchStatus = !cardFilter || v.status === cardFilter;
+      const matchLocation = !locationFilter
+        || (v.status === 'In Progress' && v.maintenanceLocation === locationFilter);
       const matchType = maintenanceTypeFilter === 'all' || v.maintenanceType === maintenanceTypeFilter;
       const matchRange = !rangeActive || isRegisteredInRange(v, dateRange);
-      return matchSearch && matchStatus && matchType && matchRange;
+      return matchSearch && matchStatus && matchLocation && matchType && matchRange;
     });
     return sortTableData(filtered, {
       column: sortColumn,
@@ -232,7 +268,7 @@ const ProjectGarageDetail = ({ projectId }) => {
       type: columnTypeMap[sortColumn],
       getValue: getSortValue,
     });
-  }, [vehicles, search, cardFilter, maintenanceTypeFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
+  }, [vehicles, search, cardFilter, locationFilter, maintenanceTypeFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
 
   const priorityClass = (p) => {
     const map = { Low: 'priority-low', Normal: 'priority-normal', High: 'priority-high', Critical: 'priority-critical' };
@@ -300,6 +336,8 @@ const ProjectGarageDetail = ({ projectId }) => {
         cards={summaryCards}
         selectedId={cardFilter}
         onSelect={handleCardSelect}
+        selectedSubId={locationFilter}
+        onSubSelect={handleLocationSubSelect}
         onTotalReset={handleTotalReset}
       />
 

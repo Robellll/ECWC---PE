@@ -3,6 +3,11 @@ import { requireGarageVehicleAccess, jsonOk, jsonError } from '@/lib/api-helpers
 import { mapGarageVehicle } from '@/lib/mappers.js';
 import { vehicleScope } from '@/lib/garage-access.js';
 import { nextGarageStage, nextProjectGarageStage } from '@/lib/stages.js';
+import {
+  validateMaintenanceLocationPayload,
+  maintenanceLocationLogLabel,
+} from '@/lib/maintenance-location.js';
+import { z } from 'zod';
 
 const STAGE_LABELS = {
   received: 'Received',
@@ -11,7 +16,12 @@ const STAGE_LABELS = {
   completed: 'Completed',
 };
 
-export async function POST(_request, { params }) {
+const bodySchema = z.object({
+  maintenanceLocation: z.enum(['on_site', 'central', 'outsource']).optional(),
+  outsourceGarageName: z.string().optional(),
+});
+
+export async function POST(request, { params }) {
   const { id } = await params;
   const { error, vehicle: existing } = await requireGarageVehicleAccess(id, 'edit');
   if (error) return error;
@@ -28,16 +38,53 @@ export async function POST(_request, { params }) {
     return jsonError('Vehicle is already at the maximum advanceable stage', 400);
   }
 
-  const rows = await sql`
-    UPDATE garage_vehicles SET
-      stage = ${nextStage}::garage_stage,
-      updated_at = NOW()
-    WHERE id = ${id} RETURNING *
-  `;
+  const body = await request.json().catch(() => ({}));
+  const parsed = bodySchema.safeParse(body);
+  if (!parsed.success) return jsonError('Invalid input');
+
+  let maintenanceLocation = null;
+  let outsourceGarageName = '';
+
+  if (nextStage === 'under_maintenance') {
+    const validation = validateMaintenanceLocationPayload(
+      parsed.data.maintenanceLocation,
+      parsed.data.outsourceGarageName,
+      scope,
+    );
+    if (!validation.ok) return jsonError(validation.error);
+    maintenanceLocation = parsed.data.maintenanceLocation;
+    outsourceGarageName = maintenanceLocation === 'outsource'
+      ? (parsed.data.outsourceGarageName || '').trim()
+      : '';
+  }
+
+  let rows;
+  if (nextStage === 'under_maintenance') {
+    rows = await sql`
+      UPDATE garage_vehicles SET
+        stage = ${nextStage}::garage_stage,
+        maintenance_location = ${maintenanceLocation}::garage_maintenance_location,
+        outsource_garage_name = ${outsourceGarageName},
+        updated_at = NOW()
+      WHERE id = ${id} RETURNING *
+    `;
+  } else {
+    rows = await sql`
+      UPDATE garage_vehicles SET
+        stage = ${nextStage}::garage_stage,
+        updated_at = NOW()
+      WHERE id = ${id} RETURNING *
+    `;
+  }
+
   const label = STAGE_LABELS[nextStage] || nextStage;
+  let logText = `Stage advanced to ${label}.`;
+  if (nextStage === 'under_maintenance') {
+    logText += ` ${maintenanceLocationLogLabel(maintenanceLocation, outsourceGarageName, scope)}.`;
+  }
   await sql`
     INSERT INTO garage_progress_logs (vehicle_id, text)
-    VALUES (${id}, ${`Stage advanced to ${label}.`})
+    VALUES (${id}, ${logText})
   `;
   const logs = await sql`SELECT * FROM garage_progress_logs WHERE vehicle_id = ${id} ORDER BY created_at`;
   return jsonOk(mapGarageVehicle(rows[0], logs));

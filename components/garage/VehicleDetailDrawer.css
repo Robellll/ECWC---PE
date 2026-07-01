@@ -662,3 +662,18 @@
 .dark-theme .read-only-badge { background: rgba(255,255,255,0.07); color: #8888a0; }
 .dark-theme .reopen-btn { border-color: rgba(255,255,255,0.1); color: #8888a0; }
 .dark-theme .reopen-btn:hover { color: #f0f0f5; border-color: rgba(255,255,255,0.2); }
+
+.garage-maint-loc-row .garage-maint-loc-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.spin-icon {
+  animation: garage-drawer-spin 0.8s linear infinite;
+}
+
+@keyframes garage-drawer-spin {
+  to { transform: rotate(360deg); }
+}

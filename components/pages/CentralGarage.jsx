@@ -89,6 +89,8 @@ const DurationCell = ({ startTime, endTime }) => {
   );
 };
 
+const IN_PROGRESS_CARD = 'In Progress';
+
 const emptyForm = () => ({
   plate: '',
   sroNumber: '',
@@ -108,6 +110,7 @@ const CentralGarage = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [cardFilter, setCardFilter] = useState(null);
+  const [locationFilter, setLocationFilter] = useState(null);
   const [maintenanceTypeFilter, setMaintenanceTypeFilter] = useState('all');
   const [dateRange, setDateRange] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -151,6 +154,16 @@ const CentralGarage = () => {
   const completed = typeFilteredVehicles.filter((v) => v.status === 'Completed').length;
   const completionRate = totalRegistered === 0 ? 0 : Math.round((completed / totalRegistered) * 100);
 
+  const inProgressVehicles = useMemo(
+    () => typeFilteredVehicles.filter((v) => v.status === 'In Progress'),
+    [typeFilteredVehicles],
+  );
+
+  const inProgressLocationCounts = useMemo(() => ({
+    central: inProgressVehicles.filter((v) => v.maintenanceLocation === 'central').length,
+    outsource: inProgressVehicles.filter((v) => v.maintenanceLocation === 'outsource').length,
+  }), [inProgressVehicles]);
+
   const summaryCards = useMemo(() => [
     {
       id: 'total',
@@ -159,10 +172,15 @@ const CentralGarage = () => {
       isTotal: true,
     },
     {
-      id: 'In Progress',
+      id: IN_PROGRESS_CARD,
       label: 'In Progress',
       value: inProgress,
       valueClass: 'warning',
+      subFilters: [
+        { id: 'central', label: 'Central', value: inProgressLocationCounts.central },
+        { id: 'outsource', label: 'Outsource', value: inProgressLocationCounts.outsource },
+      ],
+      subFiltersLayout: 'compact',
     },
     {
       id: 'Completed',
@@ -176,12 +194,26 @@ const CentralGarage = () => {
       value: `${completionRate}%`,
       isStatic: true,
     },
-  ], [rangeActive, totalRegistered, inProgress, completed, completionRate]);
+  ], [rangeActive, totalRegistered, inProgress, completed, completionRate, inProgressLocationCounts]);
 
-  const handleTotalReset = useCallback(() => setCardFilter(null), []);
+  const handleTotalReset = useCallback(() => {
+    setCardFilter(null);
+    setLocationFilter(null);
+  }, []);
 
   const handleCardSelect = useCallback((id) => {
-    setCardFilter((prev) => (prev === id ? null : id));
+    if (id === cardFilter) {
+      setCardFilter(null);
+      setLocationFilter(null);
+    } else {
+      setCardFilter(id);
+      if (id !== IN_PROGRESS_CARD) setLocationFilter(null);
+    }
+  }, [cardFilter]);
+
+  const handleLocationSubSelect = useCallback((_cardId, subId) => {
+    setCardFilter(IN_PROGRESS_CARD);
+    setLocationFilter((prev) => (prev === subId ? null : subId));
   }, []);
 
   const handleDelete = async (e, id) => {
@@ -233,11 +265,13 @@ const CentralGarage = () => {
         v.model.toLowerCase().includes(search.toLowerCase()) ||
         (v.sroNumber || '').toLowerCase().includes(search.toLowerCase());
       const matchStatus = !cardFilter || v.status === cardFilter;
+      const matchLocation = !locationFilter
+        || (v.status === 'In Progress' && v.maintenanceLocation === locationFilter);
       const matchType =
         maintenanceTypeFilter === 'all' ||
         v.maintenanceType === maintenanceTypeFilter;
       const matchRange = !rangeActive || isRegisteredInRange(v, dateRange);
-      return matchSearch && matchStatus && matchType && matchRange;
+      return matchSearch && matchStatus && matchLocation && matchType && matchRange;
     });
 
     return sortTableData(filtered, {
@@ -246,7 +280,7 @@ const CentralGarage = () => {
       type: columnTypeMap[sortColumn],
       getValue: getSortValue,
     });
-  }, [vehicles, search, cardFilter, maintenanceTypeFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
+  }, [vehicles, search, cardFilter, locationFilter, maintenanceTypeFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
 
   const priorityClass = (p) => {
     const map = { Low: 'priority-low', Normal: 'priority-normal', High: 'priority-high', Critical: 'priority-critical' };
@@ -314,6 +348,8 @@ const CentralGarage = () => {
         cards={summaryCards}
         selectedId={cardFilter}
         onSelect={handleCardSelect}
+        selectedSubId={locationFilter}
+        onSubSelect={handleLocationSubSelect}
         onTotalReset={handleTotalReset}
       />
 

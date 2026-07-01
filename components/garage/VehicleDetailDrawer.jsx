@@ -3,13 +3,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X, Clock, User, AlertTriangle, CheckCircle2, Circle, MessageSquarePlus,
-  Save, Lock, FileText, Calendar, Flag, ArrowRight, Wrench, ClipboardCheck, UserCheck,
+  Save, Lock, FileText, Calendar, Flag, ArrowRight, Wrench, ClipboardCheck, UserCheck, Loader2,
 } from 'lucide-react';
 import { GARAGE_STAGES, PROJECT_GARAGE_STAGES } from '@/lib/constants';
 import { workshopLabel, workshopColor, isValidStaffName, isValidMaintenanceType, maintenanceTypeLabel } from '@/lib/garage';
+import {
+  isValidMaintenanceLocation,
+  formatMaintenanceLocationSummary,
+} from '@/lib/maintenance-location';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useDuration } from '@/hooks/useDuration';
 import { apiFetch } from '@/lib/api-client';
+import MaintenanceLocationPicker from '@/components/garage/MaintenanceLocationPicker';
 import './VehicleDetailDrawer.css';
 
 const PRIORITY_CONFIG = {
@@ -69,6 +74,10 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
   const [assignedTechnician, setAssignedTechnician] = useState(vehicle.assignedTechnician || '');
   const [finalInspectionOfficer, setFinalInspectionOfficer] = useState(vehicle.finalInspectionOfficer || '');
   const [maintenanceType, setMaintenanceType] = useState(vehicle.maintenanceType || '');
+  const [maintenanceLocation, setMaintenanceLocation] = useState(vehicle.maintenanceLocation || '');
+  const [outsourceGarageName, setOutsourceGarageName] = useState(vehicle.outsourceGarageName || '');
+  const [locSaving, setLocSaving] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState('');
   const drawerRef = useRef(null);
@@ -79,8 +88,10 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
     setAssignedTechnician(vehicle.assignedTechnician || '');
     setFinalInspectionOfficer(vehicle.finalInspectionOfficer || '');
     setMaintenanceType(vehicle.maintenanceType || '');
+    setMaintenanceLocation(vehicle.maintenanceLocation || '');
+    setOutsourceGarageName(vehicle.outsourceGarageName || '');
     setCompleteError('');
-  }, [vehicle.id, vehicle.managerNotes, vehicle.assignedTechnician, vehicle.finalInspectionOfficer, vehicle.maintenanceType]);
+  }, [vehicle.id, vehicle.managerNotes, vehicle.assignedTechnician, vehicle.finalInspectionOfficer, vehicle.maintenanceType, vehicle.maintenanceLocation, vehicle.outsourceGarageName]);
 
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -108,8 +119,68 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
   };
 
   const handleAdvance = async () => {
-    const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/advance-stage`, { method: 'POST' });
-    onUpdate(updated);
+    const nextStage = stageList[currentStageIdx + 1];
+    if (!nextStage || advancing) return;
+
+    if (nextStage === 'Under Maintenance' && !isValidMaintenanceLocation(maintenanceLocation, outsourceGarageName, isProject ? 'project' : 'central')) {
+      setCompleteError('Select maintenance location before advancing.');
+      return;
+    }
+
+    setAdvancing(true);
+    setCompleteError('');
+    try {
+      const payload = nextStage === 'Under Maintenance'
+        ? {
+          maintenanceLocation,
+          outsourceGarageName: maintenanceLocation === 'outsource' ? outsourceGarageName : '',
+        }
+        : {};
+      const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/advance-stage`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      onUpdate(updated);
+    } catch (err) {
+      setCompleteError(err.message || 'Could not advance stage');
+    } finally {
+      setAdvancing(false);
+    }
+  };
+
+  const saveMaintenanceLocation = async (overrides = {}) => {
+    if (!isManager || vehicle.status === 'Completed' || vehicle.stage !== 'Under Maintenance') return;
+    const loc = overrides.maintenanceLocation ?? maintenanceLocation;
+    const garage = overrides.outsourceGarageName ?? outsourceGarageName;
+    const scope = isProject ? 'project' : 'central';
+    if (!isValidMaintenanceLocation(loc, garage, scope)) return;
+    const garageTrimmed = loc === 'outsource' ? garage.trim() : '';
+    if (loc === vehicle.maintenanceLocation && garageTrimmed === (vehicle.outsourceGarageName || '').trim()) {
+      return;
+    }
+    setLocSaving(true);
+    try {
+      const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/maintenance-location`, {
+        method: 'POST',
+        body: JSON.stringify({
+          maintenanceLocation: loc,
+          outsourceGarageName: garageTrimmed,
+        }),
+      });
+      onUpdate(updated);
+    } catch (err) {
+      setCompleteError(err.message || 'Could not save maintenance location');
+    } finally {
+      setLocSaving(false);
+    }
+  };
+
+  const handleLocationChange = (loc) => {
+    setMaintenanceLocation(loc);
+    if (loc !== 'outsource') setOutsourceGarageName('');
+    if (atUnderMaintenance && loc !== 'outsource') {
+      saveMaintenanceLocation({ maintenanceLocation: loc, outsourceGarageName: '' });
+    }
   };
 
   const saveCompletionFields = async (overrides = {}) => {
@@ -168,6 +239,13 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
 
   const currentStageIdx = stageList.indexOf(vehicle.stage);
   const canAdvance = isManager && vehicle.status !== 'Completed' && currentStageIdx < stageList.length - 2;
+  const advanceNeedsLocation = canAdvance && stageList[currentStageIdx + 1] === 'Under Maintenance';
+  const atUnderMaintenance = vehicle.stage === 'Under Maintenance' && vehicle.status !== 'Completed';
+  const showMaintenanceLocation = atUnderMaintenance || advanceNeedsLocation || Boolean(vehicle.maintenanceLocation);
+  const canEditLocation = isManager && vehicle.status !== 'Completed' && (atUnderMaintenance || advanceNeedsLocation);
+  const locationScope = isProject ? 'project' : 'central';
+  const effectiveLocation = maintenanceLocation || vehicle.maintenanceLocation;
+  const effectiveOutsourceGarage = maintenanceLocation === 'outsource' ? outsourceGarageName : (vehicle.outsourceGarageName || '');
   const atFinalInspection = !isProject && vehicle.stage === 'Final Inspection' && vehicle.status !== 'Completed';
   const atProjectComplete = isProject && vehicle.stage === 'Under Maintenance' && vehicle.status !== 'Completed';
   const canComplete = isManager && (atFinalInspection || atProjectComplete)
@@ -248,6 +326,31 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
                 )}
               </div>
             </div>
+            {showMaintenanceLocation && (
+              <div className="detail-info-item detail-info-full garage-maint-loc-row">
+                <Wrench size={14} />
+                <div className="garage-maint-loc-inner">
+                  {canEditLocation ? (
+                    <MaintenanceLocationPicker
+                      variant={isProject ? 'project' : 'central'}
+                      value={maintenanceLocation}
+                      outsourceGarageName={outsourceGarageName}
+                      onChange={handleLocationChange}
+                      onOutsourceNameChange={setOutsourceGarageName}
+                      onBlurSave={() => saveMaintenanceLocation()}
+                      editable
+                      saving={locSaving}
+                      hint={advanceNeedsLocation ? 'Required before advancing to Under Maintenance.' : undefined}
+                    />
+                  ) : (
+                    <>
+                      <span className="detail-info-label">Maintenance Location</span>
+                      <span className="garage-maint-loc-readonly">{formatMaintenanceLocationSummary(vehicle)}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="detail-info-item detail-info-full">
               <Clock size={14} />
               <div>
@@ -330,9 +433,17 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
               ))}
             </div>
             {canAdvance && (
-              <button className="advance-stage-btn" onClick={handleAdvance}>
-                <ArrowRight size={15} />Advance to &quot;{stageList[currentStageIdx + 1]}&quot;
-              </button>
+              <>
+                {completeError && advanceNeedsLocation && <p className="completion-error">{completeError}</p>}
+                <button
+                  className="advance-stage-btn"
+                  onClick={handleAdvance}
+                  disabled={advancing || (advanceNeedsLocation && !isValidMaintenanceLocation(effectiveLocation, effectiveOutsourceGarage, locationScope))}
+                >
+                  {advancing ? <Loader2 size={15} className="spin-icon" /> : <ArrowRight size={15} />}
+                  {advancing ? 'Updating…' : `Advance to "${stageList[currentStageIdx + 1]}"`}
+                </button>
+              </>
             )}
             {isManager && (atFinalInspection || atProjectComplete) && (
               <>

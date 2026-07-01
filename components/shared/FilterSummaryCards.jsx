@@ -3,6 +3,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import './FilterSummaryCards.css';
 
+function subFilterClass(id) {
+  if (id === 'central') return 'sub-central';
+  if (id === 'on_site') return 'sub-onsite';
+  return 'sub-outsource';
+}
+
 function SubFilterButtons({ card, isSelected, selectedSubId, onSubSelect, vertical, compact }) {
   if (!card.subFilters?.length) return null;
   return (
@@ -22,7 +28,7 @@ function SubFilterButtons({ card, isSelected, selectedSubId, onSubSelect, vertic
           <button
             key={sub.id}
             type="button"
-            className={`filter-sub-btn ${sub.id === 'central' ? 'sub-central' : 'sub-outsource'} ${subActive ? 'active' : ''}`}
+            className={`filter-sub-btn ${subFilterClass(sub.id)} ${subActive ? 'active' : ''}`}
             aria-pressed={subActive}
             onClick={() => onSubSelect?.(card.id, subActive ? null : sub.id)}
           >

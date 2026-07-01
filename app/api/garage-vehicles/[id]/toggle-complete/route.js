@@ -45,6 +45,9 @@ export async function POST(request, { params }) {
       : 'Vehicle must be at Final Inspection stage before completion';
     return jsonError(msg, 400);
   }
+  if (!existing.maintenance_location) {
+    return jsonError('Maintenance location must be set before completion', 400);
+  }
 
   const body = await request.json().catch(() => ({}));
   const parsed = completeSchema.safeParse(body);

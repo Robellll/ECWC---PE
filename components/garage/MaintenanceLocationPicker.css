@@ -1,0 +1,79 @@
+.garage-maint-loc-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.garage-maint-loc-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.garage-maint-loc-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.garage-maint-loc-btn {
+  flex: 1 1 auto;
+  min-width: 72px;
+  padding: 0.4rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-main);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.garage-maint-loc-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
+}
+
+.garage-maint-loc-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent-dark);
+}
+
+.garage-maint-loc-btn.loc-outsource.active {
+  border-color: #d97706;
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.garage-maint-loc-btn.loc-on_site.active {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
+.garage-maint-outsource-input {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.garage-maint-loc-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.garage-maint-loc-readonly {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
