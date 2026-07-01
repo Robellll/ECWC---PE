@@ -188,7 +188,7 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
     if (!nextStage || advancing) return;
 
     if (nextStage === 'Under Maintenance' && !isValidRepairLocation(repairLocation, outsourceGarageName)) {
-      setCompleteError('Select Central or Outsource, and enter the outsource garage name if applicable.');
+      setCompleteError('Select Central or Outside, and enter the outside garage name if applicable.');
       return;
     }
 
@@ -637,7 +637,7 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
                             if (atUnderMaintenance) setTimeout(saveRepairLocation, 0);
                           }}
                         >
-                          Outsource
+                          Outside
                         </button>
                       </div>
                       {repairLocation === 'outsource' && (

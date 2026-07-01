@@ -82,7 +82,7 @@ export async function POST(request, { params }) {
   if (nextStage === 'under_maintenance') {
     logText += repairLocation === 'central'
       ? ' Repair at Central Garage.'
-      : ` Repair outsourced to ${outsourceGarageName}.`;
+      : ` Outside repair at ${outsourceGarageName}.`;
   }
   await sql`
     INSERT INTO insurance_progress_logs (claim_id, text)

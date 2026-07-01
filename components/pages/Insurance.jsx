@@ -199,7 +199,7 @@ const Insurance = () => {
       if (stage === MAINTENANCE_STAGE) {
         card.subFilters = [
           { id: 'central', label: 'Central', value: maintenanceLocationCounts.central },
-          { id: 'outsource', label: 'Outsource', value: maintenanceLocationCounts.outsource },
+          { id: 'outsource', label: 'Outside', value: maintenanceLocationCounts.outsource },
         ];
         card.subFiltersLayout = 'compact';
       }
@@ -362,7 +362,7 @@ const Insurance = () => {
       {rangeActive && (
         <p className="date-range-hint">
           Showing accidents that occurred {formatRangeLabel(dateRange)}
-          {stageFilter && ` · ${STAGE_CARD_LABELS[stageFilter] || stageFilter}${repairLocationFilter ? ` · ${repairLocationFilter === 'central' ? 'Central' : 'Outsource'}` : ''}`}
+          {stageFilter && ` · ${STAGE_CARD_LABELS[stageFilter] || stageFilter}${repairLocationFilter ? ` · ${repairLocationFilter === 'central' ? 'Central' : 'Outside'}` : ''}`}
         </p>
       )}
 

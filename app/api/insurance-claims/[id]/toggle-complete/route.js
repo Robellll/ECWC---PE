@@ -45,7 +45,7 @@ export async function POST(request, { params }) {
     return jsonError('Claim must be at Under Maintenance stage before completion', 400);
   }
   if (!existing[0].repair_location) {
-    return jsonError('Repair location (Central or Outsource) must be set before completion', 400);
+    return jsonError('Repair location (Central or Outside) must be set before completion', 400);
   }
 
   const body = await request.json().catch(() => ({}));

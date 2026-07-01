@@ -42,7 +42,7 @@ export async function POST(request, { params }) {
 
   const label = repairLocation === 'central'
     ? 'Central Garage'
-    : `Outsource — ${garageName}`;
+    : `Outside — ${garageName}`;
   await sql`
     INSERT INTO insurance_progress_logs (claim_id, text)
     VALUES (${id}, ${`Repair location set to ${label}.`})
