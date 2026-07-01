@@ -26,9 +26,40 @@
   cursor: default;
 }
 
+.filter-summary-card.is-total.is-total-btn {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.filter-summary-card.is-total.is-total-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
 .filter-summary-card.is-total {
   border-color: color-mix(in srgb, var(--accent) 25%, var(--border-color));
   background: color-mix(in srgb, var(--accent) 5%, var(--bg-card));
+  transition:
+    border-color 0.85s ease,
+    background 0.85s ease,
+    box-shadow 0.85s ease,
+    transform 0.2s ease;
+}
+
+.filter-summary-card.is-total.total-flash {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgb(117, 200, 38), rgb(72, 150, 18));
+  box-shadow: 0 4px 16px rgba(117, 200, 38, 0.35);
+  transform: translateY(-1px);
+}
+
+.filter-summary-card.is-total.total-flash .filter-summary-title,
+.filter-summary-card.is-total.total-flash .filter-summary-value {
+  color: #fff;
+  transition: color 0.85s ease;
 }
 
 .filter-summary-card.is-filter {
@@ -91,6 +122,148 @@
 .filter-summary-row--stages .filter-summary-card {
   min-width: 108px;
   flex: 1 1 108px;
+}
+
+.filter-summary-row--stages .filter-summary-card.has-subfilters-compact {
+  min-width: 130px;
+  flex: 1 1 130px;
+}
+
+.filter-summary-card.has-subfilters {
+  gap: 0.5rem;
+}
+
+.filter-summary-card.has-subfilters-compact {
+  padding: 0.7rem 0.75rem;
+}
+
+.filter-summary-compact-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 0.4rem;
+  row-gap: 0.2rem;
+  width: 100%;
+  align-items: start;
+}
+
+.filter-summary-compact-title {
+  grid-column: 1;
+  grid-row: 1;
+  padding-right: 0.15rem;
+}
+
+.filter-summary-compact-value {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.filter-summary-subfilters--compact {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+  justify-self: end;
+}
+
+.filter-summary-subfilters--stacked {
+  flex-direction: column;
+  width: auto;
+  flex-shrink: 0;
+  margin-top: 0;
+  gap: 0.22rem;
+}
+
+.filter-summary-subfilters--stacked.filter-summary-subfilters--compact .filter-sub-btn {
+  flex: none;
+  min-width: 0;
+  width: auto;
+  padding: 0.18rem 0.35rem;
+  border-radius: 5px;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.filter-summary-subfilters--compact .filter-sub-label {
+  font-size: 0.55rem;
+  letter-spacing: 0.03em;
+}
+
+.filter-summary-subfilters--compact .filter-sub-value {
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.filter-summary-subfilters {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+  margin-top: 0.15rem;
+}
+
+.filter-sub-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.35rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-main);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+  min-width: 0;
+}
+
+.filter-sub-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
+}
+
+.filter-sub-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.filter-sub-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.filter-sub-value {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-main);
+  line-height: 1.1;
+}
+
+.filter-summary-card.is-filter.selected .filter-sub-btn {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.filter-summary-card.is-filter.selected .filter-sub-btn.active {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.filter-summary-card.is-filter.selected .filter-sub-label,
+.filter-summary-card.is-filter.selected .filter-sub-value {
+  color: #fff;
+}
+
+.filter-summary-card.is-filter.selected .filter-sub-btn:not(.active) .filter-sub-label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.filter-summary-card.is-filter.selected .filter-sub-btn:not(.active) .filter-sub-value {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 @media (max-width: 768px) {

@@ -831,6 +831,72 @@
   color: var(--text-main);
 }
 
+.ins-repair-location-block {
+  align-items: flex-start !important;
+}
+
+.ins-repair-location-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.ins-repair-location-toggle {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.ins-repair-loc-btn {
+  flex: 1;
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-main);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.ins-repair-loc-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-color));
+}
+
+.ins-repair-loc-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent-dark);
+}
+
+.ins-repair-central.active {
+  border-color: var(--accent-dark);
+}
+
+.ins-repair-outsource.active {
+  border-color: #d97706;
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.ins-outsource-garage-input {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.ins-repair-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
 @media (max-width: 640px) {
   .completion-fields {
     grid-template-columns: 1fr;

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import {
   X, Clock, AlertTriangle, CheckCircle2, Circle, MessageSquarePlus,
   Save, Lock, FileText, Calendar, Flag, ArrowRight, User, MapPin,
-  DollarSign, Trash2, ZoomIn, Loader2, Pencil, ImagePlus,
+  DollarSign, Trash2, ZoomIn, Loader2, Pencil, ImagePlus, Wrench,
 } from 'lucide-react';
 import { INSURANCE_STAGES } from '@/lib/constants';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -21,6 +21,10 @@ import {
   readImageFileAsDataUrl,
   claimToEditForm,
 } from '@/lib/insurance';
+import {
+  isValidRepairLocation,
+  formatRepairLocationSummary,
+} from '@/lib/insurance-repair';
 import './InsuranceDetailDrawer.css';
 
 const StageStep = memo(({ stage, currentStage, index }) => {
@@ -119,6 +123,9 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
     accidentForm: claim.accidentForm,
     licenseDoc: claim.licenseDoc,
   });
+  const [repairLocation, setRepairLocation] = useState(claim.repairLocation || '');
+  const [outsourceGarageName, setOutsourceGarageName] = useState(claim.outsourceGarageName || '');
+  const [repairSaving, setRepairSaving] = useState(false);
   const drawerRef = useRef(null);
 
   // Reset editable fields only when opening a different claim (not on every field update).
@@ -137,6 +144,8 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
     setEditing(false);
     setEditForm(claimToEditForm(claim));
     setEditError('');
+    setRepairLocation(claim.repairLocation || '');
+    setOutsourceGarageName(claim.outsourceGarageName || '');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when switching claims only
   }, [claim.id]);
 
@@ -177,16 +186,58 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
   const handleAdvance = async () => {
     const nextStage = INSURANCE_STAGES[INSURANCE_STAGES.indexOf(displayStage) + 1];
     if (!nextStage || advancing) return;
+
+    if (nextStage === 'Under Maintenance' && !isValidRepairLocation(repairLocation, outsourceGarageName)) {
+      setCompleteError('Select Central or Outsource, and enter the outsource garage name if applicable.');
+      return;
+    }
+
     setAdvancing(true);
+    setCompleteError('');
     setDisplayStage(nextStage);
     try {
-      const updated = await apiFetch(`/api/insurance-claims/${claim.id}/advance-stage`, { method: 'POST' });
+      const payload = nextStage === 'Under Maintenance'
+        ? {
+          repairLocation,
+          outsourceGarageName: repairLocation === 'outsource' ? outsourceGarageName : '',
+        }
+        : {};
+      const updated = await apiFetch(`/api/insurance-claims/${claim.id}/advance-stage`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
       onUpdate(updated);
     } catch (err) {
       setDisplayStage(claim.stage);
       setCompleteError(err.message || 'Could not advance stage');
     } finally {
       setAdvancing(false);
+    }
+  };
+
+  const saveRepairLocation = async (overrides = {}) => {
+    if (!isInsuranceEditor || claim.status === 'Completed' || displayStage !== 'Under Maintenance') return;
+    const loc = overrides.repairLocation ?? repairLocation;
+    const garage = overrides.outsourceGarageName ?? outsourceGarageName;
+    if (!isValidRepairLocation(loc, garage)) return;
+    const garageTrimmed = loc === 'outsource' ? garage.trim() : '';
+    if (loc === claim.repairLocation && garageTrimmed === (claim.outsourceGarageName || '').trim()) {
+      return;
+    }
+    setRepairSaving(true);
+    try {
+      const updated = await apiFetch(`/api/insurance-claims/${claim.id}/repair-location`, {
+        method: 'POST',
+        body: JSON.stringify({
+          repairLocation: loc,
+          outsourceGarageName: garageTrimmed,
+        }),
+      });
+      onUpdate(updated);
+    } catch (err) {
+      setCompleteError(err.message || 'Could not save repair location');
+    } finally {
+      setRepairSaving(false);
     }
   };
 
@@ -328,12 +379,19 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
   const canEditRegistration = isInsuranceEditor && !editing;
 
   const currentStageIdx = INSURANCE_STAGES.indexOf(displayStage);
+  const nextStage = INSURANCE_STAGES[currentStageIdx + 1];
   const canAdvance = isInsuranceEditor && !editing && claim.status !== 'Completed' && currentStageIdx < INSURANCE_STAGES.length - 2 && !advancing;
+  const advanceNeedsRepair = canAdvance && nextStage === 'Under Maintenance';
   const atUnderMaintenance = displayStage === 'Under Maintenance';
+  const showRepairLocation = atUnderMaintenance || advanceNeedsRepair || Boolean(claim.repairLocation);
+  const canEditRepair = isInsuranceEditor && claim.status !== 'Completed' && (atUnderMaintenance || advanceNeedsRepair);
+  const effectiveRepairLocation = repairLocation || claim.repairLocation;
+  const effectiveOutsourceGarage = outsourceGarageName || claim.outsourceGarageName || '';
   const canComplete =
     isInsuranceEditor &&
     claim.status !== 'Completed' &&
     atUnderMaintenance &&
+    isValidRepairLocation(effectiveRepairLocation, effectiveOutsourceGarage) &&
     isValidStaffName(finalInspectorName) &&
     isValidCompensation(compensationAmount);
 
@@ -552,6 +610,57 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
                 </span>
               </div>
             </div>
+            {showRepairLocation && (
+              <div className="detail-info-item detail-info-full ins-repair-location-block">
+                <Wrench size={14} />
+                <div className="ins-repair-location-inner">
+                  <span className="detail-info-label">Repair Location</span>
+                  {canEditRepair ? (
+                    <>
+                      <div className="ins-repair-location-toggle" role="group" aria-label="Repair location">
+                        <button
+                          type="button"
+                          className={`ins-repair-loc-btn ins-repair-central ${repairLocation === 'central' ? 'active' : ''}`}
+                          onClick={() => {
+                            setRepairLocation('central');
+                            setOutsourceGarageName('');
+                            if (atUnderMaintenance) saveRepairLocation({ repairLocation: 'central', outsourceGarageName: '' });
+                          }}
+                        >
+                          Central
+                        </button>
+                        <button
+                          type="button"
+                          className={`ins-repair-loc-btn ins-repair-outsource ${repairLocation === 'outsource' ? 'active' : ''}`}
+                          onClick={() => {
+                            setRepairLocation('outsource');
+                            if (atUnderMaintenance) setTimeout(saveRepairLocation, 0);
+                          }}
+                        >
+                          Outsource
+                        </button>
+                      </div>
+                      {repairLocation === 'outsource' && (
+                        <input
+                          type="text"
+                          className="ins-outsource-garage-input"
+                          value={outsourceGarageName}
+                          onChange={(e) => setOutsourceGarageName(e.target.value)}
+                          onBlur={saveRepairLocation}
+                          placeholder="Which garage is the vehicle at?"
+                          disabled={repairSaving}
+                        />
+                      )}
+                      {advanceNeedsRepair && (
+                        <p className="ins-repair-hint">Required before advancing to Under Maintenance.</p>
+                      )}
+                    </>
+                  ) : (
+                    <span className="detail-info-value">{formatRepairLocationSummary(claim)}</span>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="detail-info-item detail-info-full">
               <Clock size={14} />
               <div>
@@ -595,7 +704,12 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
               ))}
             </div>
             {canAdvance && (
-              <button type="button" className="advance-stage-btn" onClick={handleAdvance} disabled={advancing}>
+              <button
+                type="button"
+                className="advance-stage-btn"
+                onClick={handleAdvance}
+                disabled={advancing || (advanceNeedsRepair && !isValidRepairLocation(repairLocation, outsourceGarageName))}
+              >
                 {advancing ? <Loader2 size={15} className="spin-icon" /> : <ArrowRight size={15} />}
                 {advancing ? 'Updating…' : `Advance to "${INSURANCE_STAGES[currentStageIdx + 1]}"`}
               </button>

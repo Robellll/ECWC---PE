@@ -130,12 +130,15 @@ const emptyForm = () => ({
   photoPreview: null,
 });
 
+const MAINTENANCE_STAGE = 'Under Maintenance';
+
 const Insurance = () => {
   const { isInsuranceEditor } = usePermissions();
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState(null);
+  const [repairLocationFilter, setRepairLocationFilter] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [newClaim, setNewClaim] = useState(emptyForm);
@@ -173,20 +176,60 @@ const Insurance = () => {
     return counts;
   }, [baseClaims]);
 
+  const maintenanceClaims = useMemo(
+    () => baseClaims.filter((c) => c.stage === MAINTENANCE_STAGE),
+    [baseClaims],
+  );
+
+  const maintenanceLocationCounts = useMemo(() => ({
+    central: maintenanceClaims.filter((c) => c.repairLocation === 'central').length,
+    outsource: maintenanceClaims.filter((c) => c.repairLocation === 'outsource').length,
+  }), [maintenanceClaims]);
+
   const summaryCards = useMemo(() => {
     const totalLabel = rangeActive ? 'Accidents in Period' : 'Total Incidents';
-    const stageCards = INSURANCE_STAGES.map((stage) => ({
-      id: stage,
-      label: STAGE_CARD_LABELS[stage] || stage,
-      value: stageCounts[stage] ?? 0,
-      stageClass: STAGE_CLASS_MAP[stage] || 'stage-reported',
-      valueClass: stage === 'Completed' ? 'success' : stage === 'Document Pending' ? 'warning' : '',
-    }));
+    const stageCards = INSURANCE_STAGES.map((stage) => {
+      const card = {
+        id: stage,
+        label: STAGE_CARD_LABELS[stage] || stage,
+        value: stageCounts[stage] ?? 0,
+        stageClass: STAGE_CLASS_MAP[stage] || 'stage-reported',
+        valueClass: stage === 'Completed' ? 'success' : stage === 'Document Pending' ? 'warning' : '',
+      };
+      if (stage === MAINTENANCE_STAGE) {
+        card.subFilters = [
+          { id: 'central', label: 'Central', value: maintenanceLocationCounts.central },
+          { id: 'outsource', label: 'Outsource', value: maintenanceLocationCounts.outsource },
+        ];
+        card.subFiltersLayout = 'compact';
+      }
+      return card;
+    });
     return [
       { id: 'total', label: totalLabel, value: totalClaims, isTotal: true },
       ...stageCards,
     ];
-  }, [rangeActive, totalClaims, stageCounts]);
+  }, [rangeActive, totalClaims, stageCounts, maintenanceLocationCounts]);
+
+  const handleTotalReset = useCallback(() => {
+    setStageFilter(null);
+    setRepairLocationFilter(null);
+  }, []);
+
+  const handleStageSelect = useCallback((id) => {
+    if (id === stageFilter) {
+      setStageFilter(null);
+      setRepairLocationFilter(null);
+    } else {
+      setStageFilter(id);
+      if (id !== MAINTENANCE_STAGE) setRepairLocationFilter(null);
+    }
+  }, [stageFilter]);
+
+  const handleRepairSubSelect = useCallback((_stageId, subId) => {
+    setStageFilter(MAINTENANCE_STAGE);
+    setRepairLocationFilter((prev) => (prev === subId ? null : subId));
+  }, []);
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
@@ -271,8 +314,10 @@ const Insurance = () => {
         (c.projectName || '').toLowerCase().includes(q) ||
         (c.accidentDescription || '').toLowerCase().includes(q);
       const matchStage = !stageFilter || c.stage === stageFilter;
+      const matchRepair = !repairLocationFilter
+        || (c.stage === MAINTENANCE_STAGE && c.repairLocation === repairLocationFilter);
       const matchRange = !rangeActive || isAccidentInRange(c, dateRange);
-      return matchSearch && matchStage && matchRange;
+      return matchSearch && matchStage && matchRepair && matchRange;
     });
 
     return sortTableData(filtered, {
@@ -281,7 +326,7 @@ const Insurance = () => {
       type: columnTypeMap[sortColumn],
       getValue: getSortValue,
     });
-  }, [claims, search, stageFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
+  }, [claims, search, stageFilter, repairLocationFilter, dateRange, rangeActive, sortColumn, sortDirection, columnTypeMap]);
 
   const stageClass = (s) => STAGE_CLASS_MAP[s] || 'stage-reported';
 
@@ -317,14 +362,17 @@ const Insurance = () => {
       {rangeActive && (
         <p className="date-range-hint">
           Showing accidents that occurred {formatRangeLabel(dateRange)}
-          {stageFilter && ` · ${STAGE_CARD_LABELS[stageFilter] || stageFilter} only`}
+          {stageFilter && ` · ${STAGE_CARD_LABELS[stageFilter] || stageFilter}${repairLocationFilter ? ` · ${repairLocationFilter === 'central' ? 'Central' : 'Outsource'}` : ''}`}
         </p>
       )}
 
       <FilterSummaryCards
         cards={summaryCards}
         selectedId={stageFilter}
-        onSelect={setStageFilter}
+        onSelect={handleStageSelect}
+        selectedSubId={repairLocationFilter}
+        onSubSelect={handleRepairSubSelect}
+        onTotalReset={handleTotalReset}
         className="filter-summary-row--stages"
       />
 

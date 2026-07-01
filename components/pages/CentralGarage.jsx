@@ -178,6 +178,12 @@ const CentralGarage = () => {
     },
   ], [rangeActive, totalRegistered, inProgress, completed, completionRate]);
 
+  const handleTotalReset = useCallback(() => setCardFilter(null), []);
+
+  const handleCardSelect = useCallback((id) => {
+    setCardFilter((prev) => (prev === id ? null : id));
+  }, []);
+
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm('Delete this maintenance record?')) return;
@@ -307,7 +313,8 @@ const CentralGarage = () => {
       <FilterSummaryCards
         cards={summaryCards}
         selectedId={cardFilter}
-        onSelect={setCardFilter}
+        onSelect={handleCardSelect}
+        onTotalReset={handleTotalReset}
       />
 
       <div className="garage-filters">
