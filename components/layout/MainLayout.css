@@ -16,5 +16,5 @@
   flex: 1;
   overflow-y: auto;
   background-color: var(--bg-main);
-  padding: 0;
+  padding: 1.25rem clamp(1.25rem, 2.5vw, 2rem) 1.5rem;
 }

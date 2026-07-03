@@ -120,6 +120,62 @@
   opacity: 1;
 }
 
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.nav-group-toggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+
+.nav-chevron {
+  margin-left: auto;
+  opacity: 0.6;
+  transition: transform 0.2s ease;
+}
+
+.nav-chevron.open {
+  transform: rotate(180deg);
+}
+
+.nav-subitems {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding-left: 0.35rem;
+  margin-bottom: 0.15rem;
+}
+
+.nav-subitem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem 0.45rem 1.5rem;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.nav-subitem:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.nav-subitem.active {
+  color: rgb(117, 200, 38);
+  background: rgba(117, 200, 38, 0.1);
+  font-weight: 600;
+}
+
 /* ── Sidebar footer ── */
 .sidebar-footer {
   margin-top: auto;

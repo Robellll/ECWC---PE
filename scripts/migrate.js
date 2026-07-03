@@ -38,6 +38,7 @@ async function seedUsers() {
     { id: 'f0000001-0001-4000-8000-000000000006', email: 'maintenance@ecwc.gov.et', name: 'P&E Maintenance', role: 'pe_maintenance' },
     { id: 'f0000001-0001-4000-8000-000000000007', email: 'projmaint@ecwc.gov.et', name: 'Project Maintenance', role: 'project_pe_maintenance' },
     { id: 'f0000001-0001-4000-8000-000000000008', email: 'insurance@ecwc.gov.et', name: 'Insurance Officer', role: 'insurance_officer' },
+    { id: 'f0000001-0001-4000-8000-000000000009', email: 'production@ecwc.gov.et', name: 'Production Officer', role: 'production_officer' },
   ];
 
   for (const u of users) {
