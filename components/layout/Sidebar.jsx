@@ -8,6 +8,7 @@ import {
   Factory, ChevronDown, Package, FolderKanban, ClipboardList,
   CalendarDays, Truck, Boxes, FileBarChart,
 } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
 import CargoTruckIcon from '@/components/icons/CargoTruckIcon';
 import './Sidebar.css';
 
@@ -39,8 +40,13 @@ function isNavActive(pathname, href, matchPrefix) {
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const { isCentralGarageFollowup } = usePermissions();
   const productionActive = pathname.startsWith('/production');
   const [productionOpen, setProductionOpen] = useState(productionActive);
+
+  const visibleNavItems = isCentralGarageFollowup
+    ? navItems.filter((item) => item.href === '/garage')
+    : navItems;
 
   return (
     <aside className="sidebar">
@@ -49,7 +55,7 @@ const Sidebar = () => {
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map(({ href, label, icon: Icon, matchPrefix }) => (
+        {visibleNavItems.map(({ href, label, icon: Icon, matchPrefix }) => (
           <Link
             key={href}
             href={href}
@@ -60,6 +66,7 @@ const Sidebar = () => {
           </Link>
         ))}
 
+        {!isCentralGarageFollowup && (
         <div className={`nav-group ${productionActive ? 'nav-group-active' : ''}`}>
           <button
             type="button"
@@ -86,6 +93,7 @@ const Sidebar = () => {
             </div>
           )}
         </div>
+        )}
       </nav>
     </aside>
   );

@@ -39,17 +39,37 @@ async function seedUsers() {
     { id: 'f0000001-0001-4000-8000-000000000007', email: 'projmaint@ecwc.gov.et', name: 'Project Maintenance', role: 'project_pe_maintenance' },
     { id: 'f0000001-0001-4000-8000-000000000008', email: 'insurance@ecwc.gov.et', name: 'Insurance Officer', role: 'insurance_officer' },
     { id: 'f0000001-0001-4000-8000-000000000009', email: 'production@ecwc.gov.et', name: 'Production Officer', role: 'production_officer' },
+    {
+      id: 'f0000001-0001-4000-8000-00000000000a',
+      email: 'followup@ecwc.gov.et',
+      name: 'Central Garage Follow-up',
+      role: 'central_garage_followup',
+      password: 'follow@321',
+    },
   ];
 
   for (const u of users) {
-    await sql`
-      INSERT INTO users (id, email, password_hash, name, role, project_id)
-      VALUES (${u.id}, ${u.email}, ${passwordHash}, ${u.name}, ${u.role}::user_role, NULL)
-      ON CONFLICT (email) DO UPDATE SET
-        name = EXCLUDED.name,
-        role = EXCLUDED.role,
-        updated_at = NOW()
-    `;
+    if (u.password) {
+      const hash = await bcrypt.hash(u.password, 10);
+      await sql`
+        INSERT INTO users (id, email, password_hash, name, role, project_id)
+        VALUES (${u.id}, ${u.email}, ${hash}, ${u.name}, ${u.role}::user_role, NULL)
+        ON CONFLICT (email) DO UPDATE SET
+          name = EXCLUDED.name,
+          role = EXCLUDED.role,
+          password_hash = EXCLUDED.password_hash,
+          updated_at = NOW()
+      `;
+    } else {
+      await sql`
+        INSERT INTO users (id, email, password_hash, name, role, project_id)
+        VALUES (${u.id}, ${u.email}, ${passwordHash}, ${u.name}, ${u.role}::user_role, NULL)
+        ON CONFLICT (email) DO UPDATE SET
+          name = EXCLUDED.name,
+          role = EXCLUDED.role,
+          updated_at = NOW()
+      `;
+    }
   }
 
   console.log('User accounts ready (new installs use DEFAULT_USER_PASSWORD or Demo@2026!)');
