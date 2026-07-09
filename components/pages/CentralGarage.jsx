@@ -13,6 +13,7 @@ import VehicleDetailDrawer from '@/components/garage/VehicleDetailDrawer';
 import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
 import SearchBar from '@/components/shared/SearchBar';
+import AppModal, { FormField } from '@/components/ui/AppModal';
 import './Garage.css';
 
 const PRIORITY_ORDER = { Critical: 0, High: 1, Normal: 2, Low: 3 };
@@ -426,80 +427,66 @@ const CentralGarage = () => {
         </table>
       </div>
 
-      {showAddModal && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
-          <div className="modal-content">
-            <h2>Register Vehicle for Maintenance</h2>
-            <form onSubmit={handleAddSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Plate Number</label>
-                  <input required type="text" value={newVehicle.plate} onChange={(e) => setNewVehicle({ ...newVehicle, plate: e.target.value })} placeholder="e.g. AA-12345" />
-                </div>
-                <div className="form-group">
-                  <label>SRO No.</label>
-                  <input required type="text" value={newVehicle.sroNumber} onChange={(e) => setNewVehicle({ ...newVehicle, sroNumber: e.target.value })} placeholder="e.g. 54321" />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Vehicle / Equipment Model</label>
-                  <input required type="text" value={newVehicle.model} onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })} placeholder="e.g. CAT 320 Excavator" />
-                </div>
-                <div className="form-group">
-                  <label>Priority</label>
-                  <select value={newVehicle.priority} onChange={(e) => setNewVehicle({ ...newVehicle, priority: e.target.value })}>
-                    <option>Low</option><option>Normal</option><option>High</option><option>Critical</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Workshop</label>
-                <select required value={newVehicle.workshop} onChange={(e) => setNewVehicle({ ...newVehicle, workshop: e.target.value })}>
-                  {GARAGE_WORKSHOPS.map((w) => (
-                    <option key={w.value} value={w.value}>{w.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Maintenance Type</label>
-                <div className="registration-type-choice" role="radiogroup" aria-label="Maintenance type">
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={newVehicle.maintenanceType === 'major'}
-                    className={`type-choice-btn type-major ${newVehicle.maintenanceType === 'major' ? 'selected' : ''}`}
-                    onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'major' })}
-                  >
-                    Major
-                  </button>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={newVehicle.maintenanceType === 'minor'}
-                    className={`type-choice-btn type-minor ${newVehicle.maintenanceType === 'minor' ? 'selected' : ''}`}
-                    onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'minor' })}
-                  >
-                    Minor
-                  </button>
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Reported Issue</label>
-                <textarea required value={newVehicle.reportedIssue} onChange={(e) => setNewVehicle({ ...newVehicle, reportedIssue: e.target.value })} rows="3" placeholder="Describe the problem…" />
-              </div>
-              <div className="form-group">
-                <label>Receiving Inspector</label>
-                <input required type="text" value={newVehicle.receivingInspector} onChange={(e) => setNewVehicle({ ...newVehicle, receivingInspector: e.target.value })} placeholder="Inspector who receives the vehicle" />
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary"><Plus size={15} /> Register Vehicle</button>
-              </div>
-            </form>
-          </div>
+      <AppModal
+        open={showAddModal}
+        title="Register Vehicle for Maintenance"
+        onClose={() => setShowAddModal(false)}
+        onSubmit={handleAddSubmit}
+        submitLabel="Register Vehicle"
+        large
+      >
+        <div className="production-form-grid">
+          <FormField label="Plate Number">
+            <input required type="text" value={newVehicle.plate} onChange={(e) => setNewVehicle({ ...newVehicle, plate: e.target.value })} placeholder="e.g. AA-12345" />
+          </FormField>
+          <FormField label="SRO No.">
+            <input required type="text" value={newVehicle.sroNumber} onChange={(e) => setNewVehicle({ ...newVehicle, sroNumber: e.target.value })} placeholder="e.g. 54321" />
+          </FormField>
+          <FormField label="Vehicle / Equipment Model">
+            <input required type="text" value={newVehicle.model} onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })} placeholder="e.g. CAT 320 Excavator" />
+          </FormField>
+          <FormField label="Priority">
+            <select value={newVehicle.priority} onChange={(e) => setNewVehicle({ ...newVehicle, priority: e.target.value })}>
+              <option>Low</option><option>Normal</option><option>High</option><option>Critical</option>
+            </select>
+          </FormField>
+          <FormField label="Workshop" full>
+            <select required value={newVehicle.workshop} onChange={(e) => setNewVehicle({ ...newVehicle, workshop: e.target.value })}>
+              {GARAGE_WORKSHOPS.map((w) => (
+                <option key={w.value} value={w.value}>{w.label}</option>
+              ))}
+            </select>
+          </FormField>
+          <FormField label="Maintenance Type" full>
+            <div className="registration-type-choice" role="radiogroup" aria-label="Maintenance type">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={newVehicle.maintenanceType === 'major'}
+                className={`type-choice-btn type-major ${newVehicle.maintenanceType === 'major' ? 'selected' : ''}`}
+                onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'major' })}
+              >
+                Major
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={newVehicle.maintenanceType === 'minor'}
+                className={`type-choice-btn type-minor ${newVehicle.maintenanceType === 'minor' ? 'selected' : ''}`}
+                onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'minor' })}
+              >
+                Minor
+              </button>
+            </div>
+          </FormField>
+          <FormField label="Reported Issue" full>
+            <textarea required value={newVehicle.reportedIssue} onChange={(e) => setNewVehicle({ ...newVehicle, reportedIssue: e.target.value })} rows="3" placeholder="Describe the problem…" />
+          </FormField>
+          <FormField label="Receiving Inspector" full>
+            <input required type="text" value={newVehicle.receivingInspector} onChange={(e) => setNewVehicle({ ...newVehicle, receivingInspector: e.target.value })} placeholder="Inspector who receives the vehicle" />
+          </FormField>
         </div>
-      )}
+      </AppModal>
 
       {drawerVehicle && (
         <VehicleDetailDrawer

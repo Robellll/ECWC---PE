@@ -1,12 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Key, Copy, Check, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Key, Copy, Check, AlertCircle } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
-import { defaultSiteEmail, defaultSiteDisplayName } from '@/lib/project-site-login';
+import AppModal, { FormField } from '@/components/ui/AppModal';
+import {
+  GARAGE_SITE_LOGIN_CONFIG,
+  EQUIPMENT_SITE_LOGIN_CONFIG,
+} from '@/lib/project-site-login';
 import './ProjectSiteLoginModal.css';
 
-const ProjectSiteLoginModal = ({ project, onClose, onSaved }) => {
+const CONFIG_BY_MODULE = {
+  garage: GARAGE_SITE_LOGIN_CONFIG,
+  equipment: EQUIPMENT_SITE_LOGIN_CONFIG,
+};
+
+const ProjectSiteLoginModal = ({ project, onClose, onSaved, module = 'garage' }) => {
+  const config = useMemo(
+    () => CONFIG_BY_MODULE[module] || GARAGE_SITE_LOGIN_CONFIG,
+    [module],
+  );
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -18,15 +32,17 @@ const ProjectSiteLoginModal = ({ project, onClose, onSaved }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [copied, setCopied] = useState(false);
 
+  const apiPath = `${config.apiBase}/${project.id}/site-login`;
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data = await apiFetch(`/api/project-garage/${project.id}/site-login`);
+        const data = await apiFetch(apiPath);
         if (cancelled) return;
         setSiteLogin(data);
-        setEmail(data.email || defaultSiteEmail(project.name));
-        setName(data.user?.name || defaultSiteDisplayName(project.name));
+        setEmail(data.email || config.defaultEmail(project.name));
+        setName(data.user?.name || config.defaultDisplayName(project.name));
       } catch (err) {
         if (!cancelled) setError(err.message || 'Could not load site login');
       } finally {
@@ -34,7 +50,7 @@ const ProjectSiteLoginModal = ({ project, onClose, onSaved }) => {
       }
     })();
     return () => { cancelled = true; };
-  }, [project.id, project.name]);
+  }, [apiPath, config, project.id, project.name]);
 
   const handleCopyEmail = async () => {
     try {
@@ -60,7 +76,7 @@ const ProjectSiteLoginModal = ({ project, onClose, onSaved }) => {
     }
     setSaving(true);
     try {
-      const data = await apiFetch(`/api/project-garage/${project.id}/site-login`, {
+      const data = await apiFetch(apiPath, {
         method: 'POST',
         body: JSON.stringify({ email, password, name }),
       });
@@ -82,7 +98,7 @@ const ProjectSiteLoginModal = ({ project, onClose, onSaved }) => {
     setSuccess('');
     setSaving(true);
     try {
-      const data = await apiFetch(`/api/project-garage/${project.id}/site-login`, { method: 'DELETE' });
+      const data = await apiFetch(apiPath, { method: 'DELETE' });
       setSiteLogin(data);
       setSuccess(data.message || 'Site login disabled.');
       onSaved?.(data);
@@ -94,103 +110,91 @@ const ProjectSiteLoginModal = ({ project, onClose, onSaved }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-content pg-site-login-modal" role="dialog" aria-modal="true">
-        <div className="pg-site-login-header">
-          <div>
-            <h2><Key size={18} /> Project Site Login</h2>
-            <p className="pg-site-login-sub">{project.name}</p>
+    <AppModal
+      open
+      title={config.title}
+      subtitle={project.name}
+      titleIcon={<Key size={18} />}
+      onClose={onClose}
+      onSubmit={handleSave}
+      submitLabel={saving ? 'Saving…' : siteLogin?.user ? 'Update Password' : 'Create Site Login'}
+      submitDisabled={saving || loading}
+      noForm={loading}
+      footer={loading ? null : undefined}
+      actionsStart={siteLogin?.enabled ? (
+        <button type="button" className="btn-secondary pg-disable-btn" onClick={handleDisable} disabled={saving}>
+          Disable
+        </button>
+      ) : null}
+      contentClassName="pg-site-login-modal"
+      large
+    >
+      {loading ? (
+        <p className="page-subtitle">Loading…</p>
+      ) : (
+        <>
+          <div className={`pg-site-status ${siteLogin?.enabled ? 'active' : 'inactive'}`}>
+            {siteLogin?.enabled ? 'Site login active' : 'No active site login'}
+            {siteLogin?.user && (
+              <span className="pg-site-status-meta">Last updated {new Date(siteLogin.user.updatedAt).toLocaleDateString('en-GB')}</span>
+            )}
           </div>
-          <button type="button" className="drawer-close-btn" onClick={onClose} aria-label="Close"><X size={20} /></button>
-        </div>
 
-        {loading ? (
-          <p className="page-subtitle">Loading…</p>
-        ) : (
-          <>
-            <div className={`pg-site-status ${siteLogin?.enabled ? 'active' : 'inactive'}`}>
-              {siteLogin?.enabled ? 'Site login active' : 'No active site login'}
-              {siteLogin?.user && (
-                <span className="pg-site-status-meta">Last updated {new Date(siteLogin.user.updatedAt).toLocaleDateString('en-GB')}</span>
-              )}
-            </div>
+          <p className="pg-site-login-hint">{config.hint}</p>
 
-            <p className="pg-site-login-hint">
-              Create one shared login per project for site staff. When personnel change, set a new password — the email stays the same.
-            </p>
-
-            <form onSubmit={handleSave}>
-              <div className="form-group">
-                <label>Login email</label>
-                <div className="pg-email-row">
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="garage.project-name@ecwc.gov.et"
-                  />
-                  <button type="button" className="btn-secondary pg-copy-btn" onClick={handleCopyEmail} title="Copy email">
-                    {copied ? <Check size={14} /> : <Copy size={14} />}
-                  </button>
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Display name</label>
+          <div className="production-form-grid">
+            <FormField label="Login email" full>
+              <div className="pg-email-row">
                 <input
-                  type="text"
+                  type="email"
                   required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Project site garage account"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={config.emailPlaceholder}
                 />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>{siteLogin?.user ? 'New password' : 'Password'}</label>
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min. 8 characters"
-                    autoComplete="new-password"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Confirm password</label>
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repeat password"
-                    autoComplete="new-password"
-                  />
-                </div>
-              </div>
-
-              {error && <p className="pg-site-error"><AlertCircle size={14} /> {error}</p>}
-              {success && <p className="pg-site-success">{success}</p>}
-
-              <div className="modal-actions">
-                {siteLogin?.enabled && (
-                  <button type="button" className="btn-secondary pg-disable-btn" onClick={handleDisable} disabled={saving}>
-                    Disable
-                  </button>
-                )}
-                <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-                <button type="submit" className="btn-primary" disabled={saving}>
-                  {saving ? 'Saving…' : siteLogin?.user ? 'Update Password' : 'Create Site Login'}
+                <button type="button" className="btn-secondary pg-copy-btn" onClick={handleCopyEmail} title="Copy email">
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
                 </button>
               </div>
-            </form>
-          </>
-        )}
-      </div>
-    </div>
+            </FormField>
+            <FormField label="Display name" full>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={config.displayNamePlaceholder}
+              />
+            </FormField>
+            <FormField label={siteLogin?.user ? 'New password' : 'Password'}>
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Min. 8 characters"
+                autoComplete="new-password"
+              />
+            </FormField>
+            <FormField label="Confirm password">
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repeat password"
+                autoComplete="new-password"
+              />
+            </FormField>
+          </div>
+
+          {error && <p className="pg-site-error"><AlertCircle size={14} /> {error}</p>}
+          {success && <p className="pg-site-success">{success}</p>}
+        </>
+      )}
+    </AppModal>
   );
 };
 

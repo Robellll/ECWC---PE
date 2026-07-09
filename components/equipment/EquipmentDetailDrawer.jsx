@@ -1,102 +1,175 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
-  X, Calendar, User, Wrench, Lock, Save, FileText,
-  AlertTriangle, Play, HelpCircle, Briefcase
+  X, Calendar, User, Lock, FileText, Camera,
+  AlertTriangle, Play, HelpCircle, Wrench, ZoomIn,
 } from 'lucide-react';
-import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
+import { EQUIPMENT_STATUS_OPTIONS, readEquipmentPhoto } from '@/lib/equipment-form';
+import DrawerActionBar from '@/components/ui/DrawerActionBar';
+import '@/components/ui/DetailDrawerShell.css';
 import './EquipmentDetailDrawer.css';
 
 const STATUS_CONFIG = {
-  Operational: { color: 'status-operational', icon: Play, label: 'Operational' },
-  'Under Maintenance': { color: 'status-maintenance', icon: Wrench, label: 'Under Maintenance' },
+  Operational: { color: 'status-operational', icon: Play, label: 'Operable' },
+  'Under Maintenance': { color: 'status-breakdown', icon: Wrench, label: 'Down' },
   Idle: { color: 'status-idle', icon: HelpCircle, label: 'Idle' },
-  Breakdown: { color: 'status-breakdown', icon: AlertTriangle, label: 'Breakdown' }
+  Breakdown: { color: 'status-breakdown', icon: AlertTriangle, label: 'Down' },
 };
 
-const UNASSIGNED = 'Idle / Unassigned';
+function displayStatusLabel(status) {
+  if (status === 'Under Maintenance') return 'Down';
+  return STATUS_CONFIG[status]?.label || status;
+}
 
-const EquipmentDetailDrawer = ({ equipment, projectOptions = [], onClose, onUpdate }) => {
-  const { isEquipmentEditor: isEditor } = usePermissions();
-
-  const [notes, setNotes] = useState(equipment.managerNotes || '');
-  const [project, setProject] = useState(equipment.project || '');
-  const [status, setStatus] = useState(equipment.status || 'Operational');
-  const [capacity, setCapacity] = useState(equipment.capacity || '');
+export default function EquipmentDetailDrawer({
+  equipment,
+  onClose,
+  onUpdate,
+  canEdit = false,
+}) {
+  const [form, setForm] = useState({
+    plateSerial: equipment.plateSerial || '',
+    model: equipment.model || equipment.name || '',
+    status: equipment.status === 'Under Maintenance' ? 'Breakdown' : (equipment.status || 'Operational'),
+    operatorName: equipment.operatorName || '',
+    operatorPhone: equipment.operatorPhone || '',
+    capacity: equipment.capacity || '',
+    remarks: equipment.remarks || equipment.managerNotes || '',
+    photo: equipment.photo || '',
+    photoPreview: equipment.photo || '',
+    clearPhoto: false,
+  });
   const [dirty, setDirty] = useState(false);
-  
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const [error, setError] = useState('');
   const drawerRef = useRef(null);
 
-  // Sync state when equipment changes
   useEffect(() => {
-    setNotes(equipment.managerNotes || '');
-    setProject(equipment.project || '');
-    setStatus(equipment.status || 'Operational');
-    setCapacity(equipment.capacity || '');
+    setForm({
+      plateSerial: equipment.plateSerial || '',
+      model: equipment.model || equipment.name || '',
+      status: equipment.status === 'Under Maintenance' ? 'Breakdown' : (equipment.status || 'Operational'),
+      operatorName: equipment.operatorName || '',
+      operatorPhone: equipment.operatorPhone || '',
+      capacity: equipment.capacity || '',
+      remarks: equipment.remarks || equipment.managerNotes || '',
+      photo: equipment.photo || '',
+      photoPreview: equipment.photo || '',
+      clearPhoto: false,
+    });
     setDirty(false);
+    setError('');
   }, [equipment]);
 
-  // Close on Escape key press
   useEffect(() => {
     const handleKey = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (photoOpen) setPhotoOpen(false);
+        else onClose();
+      }
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose]);
+  }, [onClose, photoOpen]);
 
-  const handleSave = async () => {
-    const updated = await apiFetch(`/api/equipment/${equipment.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ project, status, capacity, managerNotes: notes }),
-    });
-    onUpdate(updated);
-    setDirty(false);
+  const patch = (updates) => {
+    setForm((f) => ({ ...f, ...updates }));
+    setDirty(true);
   };
 
-  const statusCfg = STATUS_CONFIG[status] || STATUS_CONFIG.Operational;
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await readEquipmentPhoto(file);
+      patch({ photo: dataUrl, photoPreview: dataUrl, clearPhoto: false });
+      setError('');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleSave = async () => {
+    setError('');
+    try {
+      const payload = {
+        plateSerial: form.plateSerial.trim(),
+        model: form.model.trim(),
+        status: form.status,
+        operatorName: form.operatorName.trim(),
+        operatorPhone: form.operatorPhone.trim(),
+        capacity: form.capacity.trim(),
+        remarks: form.remarks.trim(),
+      };
+      if (form.clearPhoto) payload.clearPhoto = true;
+      else if (form.photo && form.photo !== equipment.photo) payload.photo = form.photo;
+
+      const updated = await apiFetch(`/api/equipment/${equipment.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      onUpdate(updated);
+      setDirty(false);
+    } catch (err) {
+      setError(err.message || 'Could not save changes');
+    }
+  };
+
+  const statusCfg = STATUS_CONFIG[form.status] || STATUS_CONFIG.Operational;
   const StatusIcon = statusCfg.icon;
+  const preview = form.photoPreview;
 
   return (
     <>
-      {/* Backdrop */}
       <div className="drawer-backdrop" onClick={onClose} />
-
-      {/* Drawer Panel */}
-      <aside className="equipment-drawer animate-slide-in" ref={drawerRef} role="dialog" aria-modal="true">
-        {/* Header */}
+      <aside className="detail-drawer-panel equipment-drawer" ref={drawerRef} role="dialog" aria-modal="true">
         <div className="drawer-header">
           <div className="drawer-title-group">
             <span className="equipment-code-badge">{equipment.code}</span>
-            <h2 className="drawer-name">{equipment.name}</h2>
-            <span className="equipment-type-pill">{equipment.type}</span>
+            <h2 className="drawer-name">{form.model}</h2>
+            {form.plateSerial && (
+              <span className="equipment-plate-pill">{form.plateSerial}</span>
+            )}
           </div>
           <div className="drawer-header-right">
             <span className={`status-badge-indicator ${statusCfg.color}`}>
               <StatusIcon size={14} />
-              {statusCfg.label}
+              {displayStatusLabel(form.status)}
             </span>
-            <button className="drawer-close-btn" onClick={onClose} title="Close (Esc)">
+            <button type="button" className="drawer-close-btn" onClick={onClose} title="Close (Esc)">
               <X size={20} />
             </button>
           </div>
         </div>
 
-        {/* Scrollable Body */}
+        {canEdit && dirty && (
+          <DrawerActionBar
+            error={error}
+            onSave={handleSave}
+            saveLabel="Save Changes"
+          />
+        )}
+
         <div className="drawer-body">
-          {/* Metadata Section */}
+          {preview ? (
+            <button type="button" className="pe-drawer-photo-wrap" onClick={() => setPhotoOpen(true)}>
+              <img src={preview} alt={form.model} className="pe-drawer-photo" />
+              <span className="pe-drawer-photo-zoom"><ZoomIn size={16} /> View full size</span>
+            </button>
+          ) : (
+            <div className="pe-drawer-photo-placeholder">No photo uploaded</div>
+          )}
+
           <div className="detail-info-grid">
             <div className="detail-info-item">
               <Calendar size={14} className="info-icon" />
               <div>
-                <span className="detail-info-label">Added On</span>
+                <span className="detail-info-label">Registered</span>
                 <span className="detail-info-value">
                   {new Date(equipment.registeredDate).toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric'
+                    day: '2-digit', month: 'short', year: 'numeric',
                   })}
                 </span>
               </div>
@@ -110,124 +183,165 @@ const EquipmentDetailDrawer = ({ equipment, projectOptions = [], onClose, onUpda
             </div>
           </div>
 
-          {/* Quick Stats Grid */}
           <div className="drawer-stats-section">
-            <h3 className="section-title">Equipment Attributes</h3>
-            
-            {isEditor ? (
+            <h3 className="section-title">Equipment Details</h3>
+
+            {canEdit ? (
               <div className="edit-form-fields">
+                <div className="drawer-form-row">
+                  <div className="drawer-form-group">
+                    <label>Plate / Serial No.</label>
+                    <input
+                      value={form.plateSerial}
+                      onChange={(e) => patch({ plateSerial: e.target.value })}
+                      placeholder="e.g. AA-3-12345"
+                    />
+                  </div>
+                  <div className="drawer-form-group">
+                    <label>Model</label>
+                    <input
+                      value={form.model}
+                      onChange={(e) => patch({ model: e.target.value })}
+                      placeholder="e.g. CAT 320D Excavator"
+                    />
+                  </div>
+                </div>
+
                 <div className="drawer-form-group">
-                  <label>Current Project Assignment</label>
-                  <select
-                    value={project}
-                    onChange={(e) => {
-                      setProject(e.target.value);
-                      setDirty(true);
-                    }}
-                  >
-                    {projectOptions.map((proj) => (
-                      <option key={proj} value={proj}>
-                        {proj}
-                      </option>
+                  <label>Status</label>
+                  <div className="pe-status-choice pe-status-choice--drawer" role="radiogroup">
+                    {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.group}
+                        type="button"
+                        role="radio"
+                        aria-checked={form.status === opt.uiValue}
+                        className={`pe-status-choice-btn pe-status-${opt.group} ${form.status === opt.uiValue ? 'selected' : ''}`}
+                        onClick={() => patch({ status: opt.uiValue })}
+                      >
+                        {opt.label}
+                      </button>
                     ))}
-                    <option value={UNASSIGNED}>{UNASSIGNED}</option>
-                  </select>
+                  </div>
                 </div>
 
                 <div className="drawer-form-row">
                   <div className="drawer-form-group">
-                    <label>Operational Status</label>
-                    <select
-                      value={status}
-                      onChange={(e) => {
-                        setStatus(e.target.value);
-                        setDirty(true);
-                      }}
-                    >
-                      <option value="Operational">Operational</option>
-                      <option value="Under Maintenance">Under Maintenance</option>
-                      <option value="Idle">Idle</option>
-                      <option value="Breakdown">Breakdown</option>
-                    </select>
-                  </div>
-
-                  <div className="drawer-form-group">
-                    <label>Capacity / Specs</label>
+                    <label>Operator Name</label>
                     <input
-                      type="text"
-                      value={capacity}
-                      onChange={(e) => {
-                        setCapacity(e.target.value);
-                        setDirty(true);
-                      }}
-                      placeholder="e.g. 20 Tons, 320 HP"
+                      value={form.operatorName}
+                      onChange={(e) => patch({ operatorName: e.target.value })}
+                      placeholder="e.g. Abebe Kebede"
                     />
+                  </div>
+                  <div className="drawer-form-group">
+                    <label>Operator Phone</label>
+                    <input
+                      value={form.operatorPhone}
+                      onChange={(e) => patch({ operatorPhone: e.target.value })}
+                      placeholder="e.g. 0911 234 567"
+                    />
+                  </div>
+                </div>
+
+                <div className="drawer-form-group">
+                  <label>Capacity / Specification</label>
+                  <input
+                    value={form.capacity}
+                    onChange={(e) => patch({ capacity: e.target.value })}
+                    placeholder="e.g. 20 ton, 1.2 m³"
+                  />
+                </div>
+
+                <div className="drawer-form-group">
+                  <label>Photo</label>
+                  <div className="pe-photo-upload-zone">
+                    <input
+                      id={`equipmentPhotoEdit-${equipment.id}`}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="photo-input-hidden"
+                      onChange={handlePhotoChange}
+                    />
+                    <label htmlFor={`equipmentPhotoEdit-${equipment.id}`} className="pe-photo-upload-btn">
+                      <Camera size={16} />
+                      {preview ? 'Change photo' : 'Add photo'}
+                    </label>
+                    {preview && canEdit && (
+                      <button
+                        type="button"
+                        className="pe-photo-remove-btn"
+                        onClick={() => patch({ photo: '', photoPreview: '', clearPhoto: true })}
+                      >
+                        Remove photo
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             ) : (
               <div className="attributes-readonly-grid">
                 <div className="attribute-row">
-                  <span className="attr-label">Project:</span>
-                  <span className="attr-val font-semibold">{project}</span>
+                  <span className="attr-label">Project</span>
+                  <span className="attr-val font-semibold">{equipment.project}</span>
                 </div>
                 <div className="attribute-row">
-                  <span className="attr-label">Status:</span>
-                  <span className="attr-val font-semibold">{status}</span>
+                  <span className="attr-label">Plate / Serial</span>
+                  <span className="attr-val">{form.plateSerial || '—'}</span>
                 </div>
                 <div className="attribute-row">
-                  <span className="attr-label">Capacity / Specification:</span>
-                  <span className="attr-val font-semibold">{capacity}</span>
+                  <span className="attr-label">Status</span>
+                  <span className="attr-val">{displayStatusLabel(form.status)}</span>
                 </div>
+                <div className="attribute-row">
+                  <span className="attr-label">Operator</span>
+                  <span className="attr-val">
+                    {form.operatorName
+                      ? <>{form.operatorName}{form.operatorPhone && <> · {form.operatorPhone}</>}</>
+                      : '—'}
+                  </span>
+                </div>
+                <div className="attribute-row">
+                  <span className="attr-label">Capacity</span>
+                  <span className="attr-val">{form.capacity || '—'}</span>
+                </div>
+              </div>
+            )}
+
+            {!canEdit && (
+              <div className="read-only-badge" style={{ marginTop: '0.5rem' }}>
+                <Lock size={11} /> Read only
               </div>
             )}
           </div>
 
-          {/* Manager Notes */}
           <div className="detail-section">
             <div className="detail-section-title">
               <FileText size={15} />
-              Administration &amp; Manager Notes
-              {!isEditor && <span className="read-only-badge"><Lock size={11} /> Read Only</span>}
+              Remarks
             </div>
-
-            {isEditor ? (
-              <div className="notes-editor">
-                <textarea
-                  className="notes-textarea"
-                  value={notes}
-                  onChange={(e) => {
-                    setNotes(e.target.value);
-                    setDirty(true);
-                  }}
-                  placeholder="Add administrative notes regarding project location, operator details, specific task assignments, or site relocations…"
-                  rows={6}
-                />
-              </div>
+            {canEdit ? (
+              <textarea
+                className="notes-textarea"
+                value={form.remarks}
+                onChange={(e) => patch({ remarks: e.target.value })}
+                rows={5}
+                placeholder="Location on site, sector, assignment notes…"
+              />
             ) : (
               <div className="notes-readonly">
-                {equipment.managerNotes ? (
-                  <p>{equipment.managerNotes}</p>
-                ) : (
-                  <p className="notes-empty">No notes have been added for this equipment.</p>
-                )}
+                {form.remarks ? <p>{form.remarks}</p> : <p className="notes-empty">No remarks recorded.</p>}
               </div>
             )}
           </div>
-
-          {/* Persistent Action Panel if edited */}
-          {isEditor && dirty && (
-            <div className="drawer-sticky-save">
-              <p className="unsaved-warning">You have unsaved changes</p>
-              <button className="save-btn" onClick={handleSave}>
-                <Save size={15} /> Save Changes
-              </button>
-            </div>
-          )}
         </div>
       </aside>
+
+      {photoOpen && preview && (
+        <div className="pe-photo-lightbox" onClick={() => setPhotoOpen(false)}>
+          <img src={preview} alt={form.model} />
+        </div>
+      )}
     </>
   );
-};
-
-export default EquipmentDetailDrawer;
+}

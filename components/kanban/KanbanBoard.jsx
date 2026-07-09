@@ -5,6 +5,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Edit2, Plus, Trash2, Save, Move } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
+import AppModal, { FormField } from '@/components/ui/AppModal';
 import './Kanban.css';
 
 const KanbanBoard = () => {
@@ -277,98 +278,81 @@ const KanbanBoard = () => {
         </DragDropContext>
       </div>
 
-      {/* Project Modal */}
-      {projectModal.isOpen && (
-        <div className="kanban-modal-overlay" onClick={() => setProjectModal(prev => ({ ...prev, isOpen: false }))}>
-          <div className="kanban-modal-content" onClick={e => e.stopPropagation()}>
-            <h2>{projectModal.mode === 'add' ? 'Add Project' : 'Edit Project'}</h2>
-            <form onSubmit={handleProjectSubmit}>
-              <div className="kanban-form-group">
-                <label>Project Name</label>
-                <input 
-                  type="text" 
-                  value={projectName} 
-                  onChange={e => setProjectName(e.target.value)} 
-                  placeholder="Enter project name..."
-                  autoFocus
-                  required
-                />
-              </div>
-              <div className="kanban-modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setProjectModal(prev => ({ ...prev, isOpen: false }))}>Cancel</button>
-                <button type="submit" className="btn-primary">Save</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AppModal
+        open={projectModal.isOpen}
+        title={projectModal.mode === 'add' ? 'Add Project' : 'Edit Project'}
+        onClose={() => setProjectModal((prev) => ({ ...prev, isOpen: false }))}
+        onSubmit={handleProjectSubmit}
+        submitLabel="Save"
+      >
+        <FormField label="Project Name" full>
+          <input
+            type="text"
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
+            placeholder="Enter project name..."
+            autoFocus
+            required
+          />
+        </FormField>
+      </AppModal>
 
-      {/* Manager Modal */}
-      {managerModal.isOpen && (
-        <div className="kanban-modal-overlay" onClick={() => setManagerModal(prev => ({ ...prev, isOpen: false }))}>
-          <div className="kanban-modal-content" onClick={e => e.stopPropagation()}>
-            <h2>{managerModal.mode === 'add' ? 'Add Manager' : 'Edit Manager'}</h2>
-            <form onSubmit={handleManagerSubmit}>
-              <div className="kanban-form-group">
-                <label>Full Name</label>
-                <input 
-                  type="text" 
-                  value={managerForm.name} 
-                  onChange={e => setManagerForm(prev => ({ ...prev, name: e.target.value }))} 
-                  placeholder="Enter manager's name..."
-                  autoFocus
-                  required
-                />
-              </div>
-              <div className="kanban-form-group">
-                <label>Phone Number</label>
-                <input 
-                  type="text" 
-                  value={managerForm.phone} 
-                  onChange={e => setManagerForm(prev => ({ ...prev, phone: e.target.value }))} 
-                  placeholder="e.g. +251 911 234 567"
-                />
-              </div>
-              <div className="kanban-form-group">
-                <label>Email Address</label>
-                <input 
-                  type="email" 
-                  value={managerForm.email} 
-                  onChange={e => setManagerForm(prev => ({ ...prev, email: e.target.value }))} 
-                  placeholder="e.g. name@ecwc.gov.et"
-                />
-              </div>
-              <div className="kanban-form-row">
-                <div className="kanban-form-group">
-                  <label>Role / Column</label>
-                  <select 
-                    value={managerForm.role} 
-                    onChange={e => setManagerForm(prev => ({ ...prev, role: e.target.value }))}
-                  >
-                    <option value="admin">Administration</option>
-                    <option value="maintenance">Maintenance</option>
-                  </select>
-                </div>
-                <div className="kanban-form-group">
-                  <label>Project / Swimlane</label>
-                  <select 
-                    value={managerForm.projectId} 
-                    onChange={e => setManagerForm(prev => ({ ...prev, projectId: e.target.value }))}
-                  >
-                    {projects.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="kanban-modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setManagerModal(prev => ({ ...prev, isOpen: false }))}>Cancel</button>
-                <button type="submit" className="btn-primary">Save</button>
-              </div>
-            </form>
-          </div>
+      <AppModal
+        open={managerModal.isOpen}
+        title={managerModal.mode === 'add' ? 'Add Manager' : 'Edit Manager'}
+        onClose={() => setManagerModal((prev) => ({ ...prev, isOpen: false }))}
+        onSubmit={handleManagerSubmit}
+        submitLabel="Save"
+        large
+      >
+        <div className="production-form-grid">
+          <FormField label="Full Name" full>
+            <input
+              type="text"
+              value={managerForm.name}
+              onChange={(e) => setManagerForm((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="Enter manager's name..."
+              autoFocus
+              required
+            />
+          </FormField>
+          <FormField label="Phone Number">
+            <input
+              type="text"
+              value={managerForm.phone}
+              onChange={(e) => setManagerForm((prev) => ({ ...prev, phone: e.target.value }))}
+              placeholder="e.g. +251 911 234 567"
+            />
+          </FormField>
+          <FormField label="Email Address">
+            <input
+              type="email"
+              value={managerForm.email}
+              onChange={(e) => setManagerForm((prev) => ({ ...prev, email: e.target.value }))}
+              placeholder="e.g. name@ecwc.gov.et"
+            />
+          </FormField>
+          <FormField label="Role / Column">
+            <select
+              value={managerForm.role}
+              onChange={(e) => setManagerForm((prev) => ({ ...prev, role: e.target.value }))}
+            >
+              <option value="admin">Administration</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+          </FormField>
+          <FormField label="Project / Swimlane">
+            <select
+              value={managerForm.projectId}
+              onChange={(e) => setManagerForm((prev) => ({ ...prev, projectId: e.target.value }))}
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </FormField>
         </div>
-      )}
+      </AppModal>
     </div>
   );
 };

@@ -2,6 +2,9 @@ import { sql } from '@/lib/db.js';
 import { requireSession, requirePermission, jsonOk, jsonError } from '@/lib/api-helpers.js';
 import { mapGarageVehicle, PRIORITY_FROM_UI } from '@/lib/mappers.js';
 import { GARAGE_WORKSHOPS } from '@/lib/garage.js';
+import {
+  writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
+} from '@/lib/audit-log.js';
 import { z } from 'zod';
 
 const workshopValues = GARAGE_WORKSHOPS.map((w) => w.value);
@@ -34,7 +37,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const { error } = await requirePermission((p) => p.isCentralGarageEditor);
+  const { session, error } = await requirePermission((p) => p.isCentralGarageEditor);
   if (error) return error;
   const body = await request.json();
   const parsed = createSchema.safeParse(body);
@@ -63,5 +66,13 @@ export async function POST(request) {
     INSERT INTO garage_progress_logs (vehicle_id, text) VALUES (${rows[0].id}, ${logText})
   `;
   const logs = await sql`SELECT * FROM garage_progress_logs WHERE vehicle_id = ${rows[0].id} ORDER BY created_at`;
-  return jsonOk(mapGarageVehicle(rows[0], logs), 201);
+  const mapped = mapGarageVehicle(rows[0], logs);
+  await writeAuditLog(session, {
+    action: AUDIT_ACTION.CREATED,
+    module: AUDIT_MODULE.GARAGE,
+    entityId: rows[0].id,
+    href: auditHref.centralGarage(rows[0].id),
+    summary: `${actorName(session)} registered central garage job ${d.plate} (${d.model})`,
+  });
+  return jsonOk(mapped, 201);
 }

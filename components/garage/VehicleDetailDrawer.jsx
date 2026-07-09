@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X, Clock, User, AlertTriangle, CheckCircle2, Circle, MessageSquarePlus,
-  Save, Lock, FileText, Calendar, Flag, ArrowRight, Wrench, ClipboardCheck, UserCheck, Loader2,
+  Lock, FileText, Calendar, Flag, ArrowRight, Wrench, ClipboardCheck, UserCheck, Loader2,
 } from 'lucide-react';
 import { GARAGE_STAGES, PROJECT_GARAGE_STAGES } from '@/lib/constants';
 import { workshopLabel, workshopColor, isValidStaffName, isValidMaintenanceType, maintenanceTypeLabel } from '@/lib/garage';
@@ -15,6 +15,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useDuration } from '@/hooks/useDuration';
 import { apiFetch } from '@/lib/api-client';
 import MaintenanceLocationPicker from '@/components/garage/MaintenanceLocationPicker';
+import DrawerActionBar from '@/components/ui/DrawerActionBar';
+import '@/components/ui/DetailDrawerShell.css';
 import './VehicleDetailDrawer.css';
 
 const PRIORITY_CONFIG = {
@@ -258,7 +260,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
   return (
     <>
       <div className="drawer-backdrop" onClick={onClose} />
-      <aside className="vehicle-drawer" ref={drawerRef} role="dialog" aria-modal="true">
+      <aside className="detail-drawer-panel vehicle-drawer" ref={drawerRef} role="dialog" aria-modal="true">
         <div className="drawer-header">
           <div className="drawer-title-group">
             <span className={`priority-badge ${pConfig.color}`}>{pConfig.icon} {vehicle.priority}</span>
@@ -271,6 +273,14 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
             <button className="drawer-close-btn" onClick={onClose} title="Close (Esc)"><X size={20} /></button>
           </div>
         </div>
+
+        {isManager && notesDirty && (
+          <DrawerActionBar
+            hint="Unsaved notes"
+            onSave={handleSaveNotes}
+            saveLabel="Save Notes"
+          />
+        )}
 
         <div className="drawer-body">
           <div className="detail-info-grid">
@@ -471,9 +481,6 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
             {isManager ? (
               <div className="notes-editor">
                 <textarea className="notes-textarea" value={notes} onChange={(e) => { setNotes(e.target.value); setNotesDirty(true); }} rows={5} />
-                {notesDirty && (
-                  <button className="save-notes-btn" onClick={handleSaveNotes}><Save size={14} />Save Notes</button>
-                )}
               </div>
             ) : (
               <div className="notes-readonly">

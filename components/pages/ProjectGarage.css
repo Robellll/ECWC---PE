@@ -330,7 +330,44 @@
   background: var(--accent-light);
 }
 
-/* —— Project detail: home / back to grid —— */
+/* —— Project detail: single-row toolbar —— */
+
+.project-garage-detail-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pg-toolbar-left {
+  justify-self: start;
+}
+
+.pg-toolbar-center {
+  justify-self: center;
+  text-align: center;
+  min-width: 0;
+  max-width: min(520px, 100%);
+}
+
+.pg-toolbar-title {
+  margin: 0;
+  font-size: clamp(1.1rem, 2.2vw, 1.45rem);
+  line-height: 1.2;
+}
+
+.pg-toolbar-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.pg-toolbar-right {
+  justify-self: end;
+}
 
 .project-garage-detail-top {
   margin-bottom: 1rem;
@@ -362,20 +399,56 @@
   box-shadow: var(--shadow-sm);
 }
 
-.project-garage-detail-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-  flex-wrap: wrap;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
 .project-garage-detail-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 900px) {
+  .project-garage-detail-toolbar {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    text-align: center;
+  }
+
+  .pg-toolbar-left,
+  .pg-toolbar-right {
+    justify-self: stretch;
+  }
+
+  .pg-toolbar-center {
+    justify-self: stretch;
+    max-width: none;
+  }
+
+  .pg-toolbar-left {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .project-garage-detail-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 560px) {
+  .project-garage-detail-toolbar {
+    gap: 0.65rem;
+  }
+
+  .pg-toolbar-subtitle {
+    display: none;
+  }
+
+  .project-garage-detail-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pg-toolbar-left {
+    justify-content: center;
+  }
 }

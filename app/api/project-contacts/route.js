@@ -1,6 +1,9 @@
 import { sql } from '@/lib/db.js';
 import { requireSession, requirePermission, jsonOk, jsonError } from '@/lib/api-helpers.js';
 import { mapContact } from '@/lib/mappers.js';
+import {
+  writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
+} from '@/lib/audit-log.js';
 import { z } from 'zod';
 
 const createSchema = z.object({
@@ -19,7 +22,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const { error } = await requirePermission((p) => p.canManageContactLogContacts);
+  const { session, error } = await requirePermission((p) => p.canManageContactLogContacts);
   if (error) return error;
   const body = await request.json();
   const parsed = createSchema.safeParse(body);
@@ -32,5 +35,13 @@ export async function POST(request) {
     VALUES (${name}, ${phone || null}, ${email || null}, ${role}::contact_role, ${projectId}, ${avatar}, ${Number(maxOrder[0]?.m || 0) + 1})
     RETURNING *
   `;
+  await writeAuditLog(session, {
+    action: AUDIT_ACTION.CREATED,
+    module: AUDIT_MODULE.CONTACT_LOG,
+    entityId: rows[0].id,
+    projectId,
+    href: auditHref.managers(),
+    summary: `${actorName(session)} added contact ${name} to Contact Log`,
+  });
   return jsonOk(mapContact(rows[0]), 201);
 }

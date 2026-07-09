@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import {
   X, Clock, AlertTriangle, CheckCircle2, Circle, MessageSquarePlus,
-  Save, Lock, FileText, Calendar, Flag, ArrowRight, User, MapPin,
+  Lock, FileText, Calendar, Flag, ArrowRight, User, MapPin,
   DollarSign, Trash2, ZoomIn, Loader2, Pencil, ImagePlus, Wrench,
 } from 'lucide-react';
 import { INSURANCE_STAGES } from '@/lib/constants';
@@ -25,6 +25,8 @@ import {
   isValidRepairLocation,
   formatRepairLocationSummary,
 } from '@/lib/insurance-repair';
+import DrawerActionBar from '@/components/ui/DrawerActionBar';
+import '@/components/ui/DetailDrawerShell.css';
 import './InsuranceDetailDrawer.css';
 
 const StageStep = memo(({ stage, currentStage, index }) => {
@@ -399,7 +401,7 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
     <>
       <div className="drawer-backdrop" onClick={onClose} />
 
-      <aside className="vehicle-drawer insurance-drawer" ref={drawerRef} role="dialog" aria-modal="true">
+      <aside className="detail-drawer-panel detail-drawer-panel--wide vehicle-drawer insurance-drawer" ref={drawerRef} role="dialog" aria-modal="true">
         <div className="drawer-header">
           <div className="drawer-title-group">
             <h2 className="drawer-plate">{claim.plate}</h2>
@@ -424,6 +426,24 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
             </button>
           </div>
         </div>
+
+        {isInsuranceEditor && editing && (
+          <DrawerActionBar
+            hint="Editing registration"
+            error={editError}
+            onCancel={handleCancelEdit}
+            onSave={handleSaveRegistration}
+            saveLabel="Save Changes"
+            saving={editSaving}
+          />
+        )}
+        {isInsuranceEditor && !editing && notesDirty && (
+          <DrawerActionBar
+            hint="Unsaved notes"
+            onSave={handleSaveNotes}
+            saveLabel="Save Notes"
+          />
+        )}
 
         <div className="drawer-body">
           {editing ? (
@@ -553,15 +573,6 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
                 </div>
               </div>
               {editError && <p className="completion-error">{editError}</p>}
-              <div className="ins-edit-actions">
-                <button type="button" className="btn-cancel" onClick={handleCancelEdit} disabled={editSaving}>
-                  Cancel
-                </button>
-                <button type="button" className="save-notes-btn" onClick={handleSaveRegistration} disabled={editSaving}>
-                  {editSaving ? <Loader2 size={14} className="spin-icon" /> : <Save size={14} />}
-                  {editSaving ? 'Saving…' : 'Save Changes'}
-                </button>
-              </div>
             </div>
           ) : (
             <>
@@ -789,12 +800,6 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
                   placeholder="Insurance notes, surveyor findings, policy details…"
                   rows={4}
                 />
-                {notesDirty && (
-                  <button type="button" className="save-notes-btn" onClick={handleSaveNotes}>
-                    <Save size={14} />
-                    Save Notes
-                  </button>
-                )}
               </div>
             ) : (
               <div className="notes-readonly">

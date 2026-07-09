@@ -1,10 +1,12 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Pencil, Trash2, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import SearchBar from '@/components/shared/SearchBar';
-import './ProductionModal.css';
+import { FormField } from '@/components/ui/AppModal';
+
+export { default as ProductionModal } from '@/components/ui/AppModal';
+export { FormField };
 
 export function ProdBadge({ status, label }) {
   const cls = (status || '').replace(/ /g, '_').toLowerCase();
@@ -117,75 +119,6 @@ export default function ProductionDataTable({
         </table>
       </div>
     </>
-  );
-}
-
-export function ProductionModal({
-  open,
-  title,
-  onClose,
-  onSubmit,
-  children,
-  submitLabel = 'Save',
-  large = false,
-}) {
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [open, onClose]);
-
-  if (!open || typeof document === 'undefined') return null;
-
-  return createPortal(
-    <div
-      className="production-modal-overlay"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div
-        className={`production-modal-content ${large ? 'production-modal-lg' : ''}`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="production-modal-title"
-      >
-        <div className="production-modal-header">
-          <h2 id="production-modal-title">{title}</h2>
-          <button
-            type="button"
-            className="production-modal-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        <form className="production-modal-form" onSubmit={onSubmit}>
-          <div className="production-modal-body">
-            {children}
-          </div>
-          <div className="production-modal-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary">{submitLabel}</button>
-          </div>
-        </form>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-export function FormField({ label, children, full }) {
-  return (
-    <div className={`production-form-group ${full ? 'form-group-full' : ''}`}>
-      {label && <label>{label}</label>}
-      {children}
-    </div>
   );
 }
 

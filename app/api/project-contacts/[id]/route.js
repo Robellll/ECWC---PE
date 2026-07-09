@@ -1,6 +1,9 @@
 import { sql } from '@/lib/db.js';
 import { requirePermission, jsonOk, jsonError } from '@/lib/api-helpers.js';
 import { mapContact } from '@/lib/mappers.js';
+import {
+  writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
+} from '@/lib/audit-log.js';
 import { z } from 'zod';
 
 const updateSchema = z.object({
@@ -13,7 +16,7 @@ const updateSchema = z.object({
 });
 
 export async function PATCH(request, { params }) {
-  const { error } = await requirePermission((p) => p.canManageContactLogContacts);
+  const { session, error } = await requirePermission((p) => p.canManageContactLogContacts);
   if (error) return error;
   const { id } = await params;
   const body = await request.json();
@@ -36,13 +39,32 @@ export async function PATCH(request, { params }) {
       updated_at = NOW()
     WHERE id = ${id} RETURNING *
   `;
+  await writeAuditLog(session, {
+    action: AUDIT_ACTION.UPDATED,
+    module: AUDIT_MODULE.CONTACT_LOG,
+    entityId: id,
+    projectId: rows[0].project_id,
+    href: auditHref.managers(),
+    summary: `${actorName(session)} updated contact ${name} in Contact Log`,
+  });
   return jsonOk(mapContact(rows[0]));
 }
 
 export async function DELETE(_request, { params }) {
-  const { error } = await requirePermission((p) => p.canManageContactLogContacts);
+  const { session, error } = await requirePermission((p) => p.canManageContactLogContacts);
   if (error) return error;
   const { id } = await params;
+  const existing = await sql`SELECT name, project_id FROM project_contacts WHERE id = ${id}`;
   await sql`DELETE FROM project_contacts WHERE id = ${id}`;
+  if (existing[0]) {
+    await writeAuditLog(session, {
+      action: AUDIT_ACTION.DELETED,
+      module: AUDIT_MODULE.CONTACT_LOG,
+      entityId: id,
+      projectId: existing[0].project_id,
+      href: auditHref.managers(),
+      summary: `${actorName(session)} removed contact ${existing[0].name} from Contact Log`,
+    });
+  }
   return jsonOk({ success: true });
 }

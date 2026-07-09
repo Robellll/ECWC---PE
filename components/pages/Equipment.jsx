@@ -3,13 +3,14 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Plus, Filter, Trash2, Eye, HardHat, Info,
-  ChevronRight, Upload, Table, AlertCircle, X, Check, Clipboard
+  ChevronRight, Upload, Table, AlertCircle, Check, Clipboard
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useProjects } from '@/hooks/useProjects';
 import { apiFetch } from '@/lib/api-client';
 import EquipmentDetailDrawer from '@/components/equipment/EquipmentDetailDrawer';
 import SearchBar from '@/components/shared/SearchBar';
+import AppModal from '@/components/ui/AppModal';
 import './Equipment.css';
 
 const UNASSIGNED = 'Idle / Unassigned';
@@ -391,41 +392,33 @@ const Equipment = () => {
         </table>
       </div>
 
-      {/* Add Equipment Modal */}
-      {showAddModal && (
-        <div
-          className="modal-overlay"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowAddModal(false);
-          }}
-        >
-          <div className={`modal-content ${activeTab === 'bulk' ? 'modal-large' : ''}`}>
-            {/* Modal Header */}
-            <div className="modal-header">
-              <h2>Register New Project Equipment</h2>
-              <button className="modal-close-icon-btn" onClick={() => setShowAddModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
+      <AppModal
+        open={showAddModal}
+        title="Register New Project Equipment"
+        onClose={() => setShowAddModal(false)}
+        xl={activeTab === 'bulk'}
+        large={activeTab !== 'bulk'}
+        noForm
+        footer={null}
+      >
+        <div className="modal-tabs">
+          <button
+            type="button"
+            className={`tab-btn ${activeTab === 'single' ? 'active' : ''}`}
+            onClick={() => setActiveTab('single')}
+          >
+            <HardHat size={15} /> Single Equipment Add
+          </button>
+          <button
+            type="button"
+            className={`tab-btn ${activeTab === 'bulk' ? 'active' : ''}`}
+            onClick={() => setActiveTab('bulk')}
+          >
+            <Table size={15} /> Spreadsheet Bulk Upload
+          </button>
+        </div>
 
-            {/* Modal Navigation Tabs */}
-            <div className="modal-tabs">
-              <button
-                className={`tab-btn ${activeTab === 'single' ? 'active' : ''}`}
-                onClick={() => setActiveTab('single')}
-              >
-                <HardHat size={15} /> Single Equipment Add
-              </button>
-              <button
-                className={`tab-btn ${activeTab === 'bulk' ? 'active' : ''}`}
-                onClick={() => setActiveTab('bulk')}
-              >
-                <Table size={15} /> Spreadsheet Bulk Upload
-              </button>
-            </div>
-
-            {/* Tab Body */}
-            {activeTab === 'single' ? (
+        {activeTab === 'single' ? (
               <form onSubmit={handleSingleSubmit} className="modal-form-body">
                 <div className="form-row">
                   <div className="form-group">
@@ -707,9 +700,7 @@ const Equipment = () => {
                 )}
               </div>
             )}
-          </div>
-        </div>
-      )}
+      </AppModal>
 
       {/* Equipment Detail Drawer */}
       {selectedEquipment && (

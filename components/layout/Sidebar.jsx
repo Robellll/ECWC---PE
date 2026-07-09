@@ -6,20 +6,21 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Users, Wrench, ShieldAlert, Building2,
   Factory, ChevronDown, Package, FolderKanban, ClipboardList,
-  CalendarDays, Truck, Boxes, FileBarChart,
+  CalendarDays, Truck, Boxes, FileBarChart, ScrollText,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import CargoTruckIcon from '@/components/icons/CargoTruckIcon';
 import './Sidebar.css';
 
-const navItems = [
+const primaryNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/managers', label: 'Contact Log', icon: Users },
-  { href: '/equipment', label: 'Equipment', icon: CargoTruckIcon },
+  { href: '/equipment', label: 'Equipment', icon: CargoTruckIcon, matchPrefix: true },
   { href: '/garage', label: 'Central Garage', icon: Wrench },
   { href: '/project-garage', label: 'Project Garage', icon: Building2, matchPrefix: true },
   { href: '/insurance', label: 'Insurance', icon: ShieldAlert },
 ];
+
+const contactLogNavItem = { href: '/managers', label: 'Contact Log', icon: Users };
 
 const productionSubItems = [
   { href: '/production/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -40,13 +41,24 @@ function isNavActive(pathname, href, matchPrefix) {
 
 const Sidebar = () => {
   const pathname = usePathname();
-  const { isCentralGarageFollowup } = usePermissions();
+  const { isCentralGarageFollowup, canViewAuditTrail } = usePermissions();
   const productionActive = pathname.startsWith('/production');
   const [productionOpen, setProductionOpen] = useState(productionActive);
 
-  const visibleNavItems = isCentralGarageFollowup
-    ? navItems.filter((item) => item.href === '/garage')
-    : navItems;
+  const visiblePrimaryNavItems = isCentralGarageFollowup
+    ? primaryNavItems.filter((item) => item.href === '/garage')
+    : primaryNavItems;
+
+  const renderNavLink = ({ href, label, icon: Icon, matchPrefix }) => (
+    <Link
+      key={href}
+      href={href}
+      className={isNavActive(pathname, href, matchPrefix) ? 'nav-item active' : 'nav-item'}
+    >
+      <Icon size={20} />
+      <span>{label}</span>
+    </Link>
+  );
 
   return (
     <aside className="sidebar">
@@ -55,16 +67,7 @@ const Sidebar = () => {
       </div>
 
       <nav className="sidebar-nav">
-        {visibleNavItems.map(({ href, label, icon: Icon, matchPrefix }) => (
-          <Link
-            key={href}
-            href={href}
-            className={isNavActive(pathname, href, matchPrefix) ? 'nav-item active' : 'nav-item'}
-          >
-            <Icon size={20} />
-            <span>{label}</span>
-          </Link>
-        ))}
+        {visiblePrimaryNavItems.map(renderNavLink)}
 
         {!isCentralGarageFollowup && (
         <div className={`nav-group ${productionActive ? 'nav-group-active' : ''}`}>
@@ -94,6 +97,14 @@ const Sidebar = () => {
           )}
         </div>
         )}
+
+        {!isCentralGarageFollowup && renderNavLink(contactLogNavItem)}
+
+        {canViewAuditTrail && renderNavLink({
+          href: '/audit-trail',
+          label: 'Audit Trail',
+          icon: ScrollText,
+        })}
       </nav>
     </aside>
   );

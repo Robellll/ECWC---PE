@@ -4,6 +4,9 @@ import { mapGarageVehicle, PRIORITY_FROM_UI } from '@/lib/mappers.js';
 import { getRolePermissions } from '@/lib/permissions.js';
 import { canViewProjectGarage, canEditProjectGarage } from '@/lib/garage-access.js';
 import { fetchProjectGarageVehicles } from '@/lib/garage-vehicles.js';
+import {
+  writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
+} from '@/lib/audit-log.js';
 import { z } from 'zod';
 
 const createSchema = z.object({
@@ -85,5 +88,14 @@ export async function POST(request, { params }) {
   const logs = await sql`
     SELECT * FROM garage_progress_logs WHERE vehicle_id = ${rows[0].id} ORDER BY created_at
   `;
-  return jsonOk(mapGarageVehicle(rows[0], logs), 201);
+  const mapped = mapGarageVehicle(rows[0], logs);
+  await writeAuditLog(session, {
+    action: AUDIT_ACTION.CREATED,
+    module: AUDIT_MODULE.PROJECT_GARAGE,
+    entityId: rows[0].id,
+    projectId,
+    href: auditHref.projectGarage(projectId, rows[0].id),
+    summary: `${actorName(session)} registered project garage job ${d.plate} on ${project.name}`,
+  });
+  return jsonOk(mapped, 201);
 }

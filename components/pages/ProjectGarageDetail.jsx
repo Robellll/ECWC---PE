@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus, Trash2, Clock, ChevronRight, Eye, ArrowUp, ArrowDown, LayoutGrid, Key,
 } from 'lucide-react';
@@ -12,6 +12,7 @@ import { sortTableData, nextSortDirection } from '@/lib/table-sort';
 import { isRegisteredInRange, isRangeComplete, formatRangeLabel } from '@/lib/date-range';
 import VehicleDetailDrawer from '@/components/garage/VehicleDetailDrawer';
 import ProjectSiteLoginModal from '@/components/garage/ProjectSiteLoginModal';
+import AppModal, { FormField } from '@/components/ui/AppModal';
 import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
 import SearchBar from '@/components/shared/SearchBar';
@@ -95,6 +96,8 @@ const emptyForm = () => ({
 
 const ProjectGarageDetail = ({ projectId }) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const vehicleParam = searchParams.get('vehicle');
   const { isSuperAdmin, user, isProjPEAdmin, isProjPEMaintenance } = usePermissions();
   const canEdit = isSuperAdmin
     || ((isProjPEAdmin || isProjPEMaintenance) && user?.projectId === projectId);
@@ -122,6 +125,12 @@ const ProjectGarageDetail = ({ projectId }) => {
   }, [projectId]);
 
   useEffect(() => { loadVehicles(); }, [loadVehicles]);
+
+  useEffect(() => {
+    if (!vehicleParam || vehicles.length === 0) return;
+    const found = vehicles.find((v) => v.id === vehicleParam);
+    if (found) setSelectedVehicle(found);
+  }, [vehicleParam, vehicles]);
 
   const drawerVehicle = vehicles.find((v) => v.id === selectedVehicle?.id) || selectedVehicle;
   const rangeActive = isRangeComplete(dateRange);
@@ -282,19 +291,20 @@ const ProjectGarageDetail = ({ projectId }) => {
 
   return (
     <div className="garage-container">
-      <div className="project-garage-detail-top">
-        <button type="button" className="project-garage-home-btn" onClick={() => router.push('/project-garage')}>
-          <LayoutGrid size={17} />
-          <span>All Projects</span>
-        </button>
-      </div>
-
-      <div className="project-garage-detail-header">
-        <div>
-          <h1 className="page-title">{projectName}</h1>
-          <p className="page-subtitle">Project site maintenance · Received → Under Maintenance → Completed</p>
+      <div className="project-garage-detail-toolbar">
+        <div className="pg-toolbar-left">
+          <button type="button" className="project-garage-home-btn" onClick={() => router.push('/project-garage')}>
+            <LayoutGrid size={17} />
+            <span>All Projects</span>
+          </button>
         </div>
-        <div className="project-garage-detail-actions">
+
+        <div className="pg-toolbar-center">
+          <h1 className="page-title pg-toolbar-title">{projectName}</h1>
+          <p className="page-subtitle pg-toolbar-subtitle">Project site maintenance · Received → Under Maintenance → Completed</p>
+        </div>
+
+        <div className="pg-toolbar-right project-garage-detail-actions">
           {canEdit && (
             <button className="btn-primary" onClick={() => setShowAddModal(true)}>
               <Plus size={16} /> Register Equipment
@@ -406,54 +416,43 @@ const ProjectGarageDetail = ({ projectId }) => {
         </table>
       </div>
 
-      {showAddModal && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
-          <div className="modal-content">
-            <h2>Register Equipment for Site Maintenance</h2>
-            <form onSubmit={handleAddSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Plate / Equipment ID</label>
-                  <input required type="text" value={newVehicle.plate} onChange={(e) => setNewVehicle({ ...newVehicle, plate: e.target.value })} placeholder="e.g. AA-12345" />
-                </div>
-                <div className="form-group">
-                  <label>Priority</label>
-                  <select value={newVehicle.priority} onChange={(e) => setNewVehicle({ ...newVehicle, priority: e.target.value })}>
-                    <option>Low</option><option>Normal</option><option>High</option><option>Critical</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Equipment / Vehicle Model</label>
-                <input required type="text" value={newVehicle.model} onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })} placeholder="e.g. CAT 320 Excavator" />
-              </div>
-              <div className="form-group">
-                <label>Maintenance Type</label>
-                <div className="registration-type-choice" role="radiogroup" aria-label="Maintenance type">
-                  <button type="button" role="radio" aria-checked={newVehicle.maintenanceType === 'major'} className={`type-choice-btn type-major ${newVehicle.maintenanceType === 'major' ? 'selected' : ''}`} onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'major' })}>Major</button>
-                  <button type="button" role="radio" aria-checked={newVehicle.maintenanceType === 'minor'} className={`type-choice-btn type-minor ${newVehicle.maintenanceType === 'minor' ? 'selected' : ''}`} onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'minor' })}>Minor</button>
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Reported Issue</label>
-                <textarea required value={newVehicle.reportedIssue} onChange={(e) => setNewVehicle({ ...newVehicle, reportedIssue: e.target.value })} rows="3" placeholder="Describe the problem…" />
-              </div>
-              <div className="form-group">
-                <label>Site Supervisor</label>
-                <input required type="text" value={newVehicle.siteSupervisor} onChange={(e) => setNewVehicle({ ...newVehicle, siteSupervisor: e.target.value })} placeholder="Supervisor receiving the equipment" />
-              </div>
-              <div className="form-group">
-                <label>Your Name (optional)</label>
-                <input type="text" value={newVehicle.siteOperatorName} onChange={(e) => setNewVehicle({ ...newVehicle, siteOperatorName: e.target.value })} placeholder={user?.name || 'Who is registering this job'} />
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary"><Plus size={15} /> Register Equipment</button>
-              </div>
-            </form>
-          </div>
+      <AppModal
+        open={showAddModal}
+        title="Register Equipment for Site Maintenance"
+        onClose={() => setShowAddModal(false)}
+        onSubmit={handleAddSubmit}
+        submitLabel="Register Equipment"
+        large
+      >
+        <div className="production-form-grid">
+          <FormField label="Plate / Equipment ID">
+            <input required type="text" value={newVehicle.plate} onChange={(e) => setNewVehicle({ ...newVehicle, plate: e.target.value })} placeholder="e.g. AA-12345" />
+          </FormField>
+          <FormField label="Priority">
+            <select value={newVehicle.priority} onChange={(e) => setNewVehicle({ ...newVehicle, priority: e.target.value })}>
+              <option>Low</option><option>Normal</option><option>High</option><option>Critical</option>
+            </select>
+          </FormField>
+          <FormField label="Equipment / Vehicle Model" full>
+            <input required type="text" value={newVehicle.model} onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })} placeholder="e.g. CAT 320 Excavator" />
+          </FormField>
+          <FormField label="Maintenance Type" full>
+            <div className="registration-type-choice" role="radiogroup" aria-label="Maintenance type">
+              <button type="button" role="radio" aria-checked={newVehicle.maintenanceType === 'major'} className={`type-choice-btn type-major ${newVehicle.maintenanceType === 'major' ? 'selected' : ''}`} onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'major' })}>Major</button>
+              <button type="button" role="radio" aria-checked={newVehicle.maintenanceType === 'minor'} className={`type-choice-btn type-minor ${newVehicle.maintenanceType === 'minor' ? 'selected' : ''}`} onClick={() => setNewVehicle({ ...newVehicle, maintenanceType: 'minor' })}>Minor</button>
+            </div>
+          </FormField>
+          <FormField label="Reported Issue" full>
+            <textarea required value={newVehicle.reportedIssue} onChange={(e) => setNewVehicle({ ...newVehicle, reportedIssue: e.target.value })} rows="3" placeholder="Describe the problem…" />
+          </FormField>
+          <FormField label="Site Supervisor">
+            <input required type="text" value={newVehicle.siteSupervisor} onChange={(e) => setNewVehicle({ ...newVehicle, siteSupervisor: e.target.value })} placeholder="Supervisor receiving the equipment" />
+          </FormField>
+          <FormField label="Your Name (optional)">
+            <input type="text" value={newVehicle.siteOperatorName} onChange={(e) => setNewVehicle({ ...newVehicle, siteOperatorName: e.target.value })} placeholder={user?.name || 'Who is registering this job'} />
+          </FormField>
         </div>
-      )}
+      </AppModal>
 
       {drawerVehicle && (
         <VehicleDetailDrawer

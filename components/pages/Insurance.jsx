@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Plus, X, ArrowUp, ArrowDown, ImagePlus } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Plus, ArrowUp, ArrowDown, ImagePlus } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
 import { sortTableData, nextSortDirection } from '@/lib/table-sort';
@@ -19,6 +20,7 @@ import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import InsuranceDetailDrawer from '@/components/insurance/InsuranceDetailDrawer';
 import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
 import SearchBar from '@/components/shared/SearchBar';
+import AppModal, { FormField } from '@/components/ui/AppModal';
 import './Insurance.css';
 
 const STAGE_CARD_LABELS = {
@@ -134,6 +136,8 @@ const emptyForm = () => ({
 const MAINTENANCE_STAGE = 'Under Maintenance';
 
 const Insurance = () => {
+  const searchParams = useSearchParams();
+  const claimParam = searchParams.get('claim');
   const { isInsuranceEditor } = usePermissions();
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -156,6 +160,12 @@ const Insurance = () => {
   }, []);
 
   useEffect(() => { loadClaims(); }, [loadClaims]);
+
+  useEffect(() => {
+    if (!claimParam || claims.length === 0) return;
+    const found = claims.find((c) => c.id === claimParam);
+    if (found) setSelectedClaim(found);
+  }, [claimParam, claims]);
 
   const drawerClaim = claims.find((c) => c.id === selectedClaim?.id) || selectedClaim;
 
@@ -448,160 +458,126 @@ const Insurance = () => {
         />
       )}
 
-      {showAddModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content insurance-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Report Accident</h3>
-              <button type="button" className="close-btn" onClick={() => setShowAddModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            <form onSubmit={handleAddSubmit} className="modal-form">
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="vehicleType">Vehicle Make &amp; Model *</label>
-                  <input
-                    id="vehicleType"
-                    type="text"
-                    required
-                    placeholder="e.g. CAT 320 Excavator, Toyota Hilux"
-                    value={newClaim.vehicleType}
-                    onChange={(e) => setNewClaim({ ...newClaim, vehicleType: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="plate">Plate No. *</label>
-                  <input
-                    id="plate"
-                    type="text"
-                    required
-                    placeholder="e.g. AA-34567"
-                    value={newClaim.plate}
-                    onChange={(e) => setNewClaim({ ...newClaim, plate: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="project">Project *</label>
-                  <input
-                    id="project"
-                    type="text"
-                    required
-                    placeholder="e.g. Addis Ababa Ring Road"
-                    value={newClaim.projectName}
-                    onChange={(e) => setNewClaim({ ...newClaim, projectName: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="driver">Driver / Operator Name *</label>
-                  <input
-                    id="driver"
-                    type="text"
-                    required
-                    placeholder="Full name"
-                    value={newClaim.driverOperator}
-                    onChange={(e) => setNewClaim({ ...newClaim, driverOperator: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="accidentDate">Date of Accident *</label>
-                  <input
-                    id="accidentDate"
-                    type="date"
-                    required
-                    value={newClaim.accidentDate}
-                    onChange={(e) => setNewClaim({ ...newClaim, accidentDate: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="accidentType">Accident Type *</label>
-                  <select
-                    id="accidentType"
-                    required
-                    value={newClaim.accidentType}
-                    onChange={(e) => setNewClaim({ ...newClaim, accidentType: e.target.value })}
-                  >
-                    {ACCIDENT_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {newClaim.accidentType === 'other' && (
-                <div className="form-group">
-                  <label htmlFor="accidentTypeOther">Specify Accident Type *</label>
-                  <input
-                    id="accidentTypeOther"
-                    type="text"
-                    required
-                    placeholder="Describe accident type"
-                    value={newClaim.accidentTypeOther}
-                    onChange={(e) => setNewClaim({ ...newClaim, accidentTypeOther: e.target.value })}
-                  />
-                </div>
+      <AppModal
+        open={showAddModal}
+        title="Report Accident"
+        onClose={() => setShowAddModal(false)}
+        onSubmit={handleAddSubmit}
+        submitLabel="Register Accident"
+        large
+      >
+        <div className="production-form-grid">
+          <FormField label="Vehicle Make & Model *">
+            <input
+              id="vehicleType"
+              type="text"
+              required
+              placeholder="e.g. CAT 320 Excavator, Toyota Hilux"
+              value={newClaim.vehicleType}
+              onChange={(e) => setNewClaim({ ...newClaim, vehicleType: e.target.value })}
+            />
+          </FormField>
+          <FormField label="Plate No. *">
+            <input
+              id="plate"
+              type="text"
+              required
+              placeholder="e.g. AA-34567"
+              value={newClaim.plate}
+              onChange={(e) => setNewClaim({ ...newClaim, plate: e.target.value })}
+            />
+          </FormField>
+          <FormField label="Project *">
+            <input
+              id="project"
+              type="text"
+              required
+              placeholder="e.g. Addis Ababa Ring Road"
+              value={newClaim.projectName}
+              onChange={(e) => setNewClaim({ ...newClaim, projectName: e.target.value })}
+            />
+          </FormField>
+          <FormField label="Driver / Operator Name *">
+            <input
+              id="driver"
+              type="text"
+              required
+              placeholder="Full name"
+              value={newClaim.driverOperator}
+              onChange={(e) => setNewClaim({ ...newClaim, driverOperator: e.target.value })}
+            />
+          </FormField>
+          <FormField label="Date of Accident *">
+            <input
+              id="accidentDate"
+              type="date"
+              required
+              value={newClaim.accidentDate}
+              onChange={(e) => setNewClaim({ ...newClaim, accidentDate: e.target.value })}
+            />
+          </FormField>
+          <FormField label="Accident Type *">
+            <select
+              id="accidentType"
+              required
+              value={newClaim.accidentType}
+              onChange={(e) => setNewClaim({ ...newClaim, accidentType: e.target.value })}
+            >
+              {ACCIDENT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </FormField>
+          {newClaim.accidentType === 'other' && (
+            <FormField label="Specify Accident Type *" full>
+              <input
+                id="accidentTypeOther"
+                type="text"
+                required
+                placeholder="Describe accident type"
+                value={newClaim.accidentTypeOther}
+                onChange={(e) => setNewClaim({ ...newClaim, accidentTypeOther: e.target.value })}
+              />
+            </FormField>
+          )}
+          <FormField label="Documents on File" full>
+            <DocCheckRow
+              values={newClaim}
+              onToggle={(key) => setNewClaim({ ...newClaim, [key]: !newClaim[key] })}
+            />
+          </FormField>
+          <FormField label="Accident Description *" full>
+            <textarea
+              id="description"
+              required
+              placeholder="Describe what happened, location, damage, witnesses…"
+              rows={4}
+              value={newClaim.accidentDescription}
+              onChange={(e) => setNewClaim({ ...newClaim, accidentDescription: e.target.value })}
+            />
+          </FormField>
+          <FormField label="Accident Photo" full>
+            <div className="photo-upload-zone">
+              <input
+                id="accidentPhoto"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handlePhotoChange}
+                className="photo-input-hidden"
+              />
+              <label htmlFor="accidentPhoto" className="photo-upload-btn">
+                <ImagePlus size={18} />
+                {newClaim.photoPreview ? 'Change photo' : 'Add photo (optional, max 2 MB)'}
+              </label>
+              {newClaim.photoPreview && (
+                <img src={newClaim.photoPreview} alt="Accident preview" className="photo-preview-thumb" />
               )}
-
-              <div className="form-group">
-                <span className="form-label-block">Documents on File</span>
-                <DocCheckRow
-                  values={newClaim}
-                  onToggle={(key) => setNewClaim({ ...newClaim, [key]: !newClaim[key] })}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="description">Accident Description *</label>
-                <textarea
-                  id="description"
-                  required
-                  placeholder="Describe what happened, location, damage, witnesses…"
-                  rows={4}
-                  value={newClaim.accidentDescription}
-                  onChange={(e) => setNewClaim({ ...newClaim, accidentDescription: e.target.value })}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="accidentPhoto">Accident Photo</label>
-                <div className="photo-upload-zone">
-                  <input
-                    id="accidentPhoto"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handlePhotoChange}
-                    className="photo-input-hidden"
-                  />
-                  <label htmlFor="accidentPhoto" className="photo-upload-btn">
-                    <ImagePlus size={18} />
-                    {newClaim.photoPreview ? 'Change photo' : 'Add photo (optional, max 2 MB)'}
-                  </label>
-                  {newClaim.photoPreview && (
-                    <img src={newClaim.photoPreview} alt="Accident preview" className="photo-preview-thumb" />
-                  )}
-                </div>
-              </div>
-
-              {submitError && <p className="form-error">{submitError}</p>}
-
-              <div className="modal-actions">
-                <button type="button" className="btn-cancel" onClick={() => setShowAddModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-submit">
-                  Register Accident
-                </button>
-              </div>
-            </form>
-          </div>
+            </div>
+          </FormField>
         </div>
-      )}
+
+        {submitError && <p className="form-error">{submitError}</p>}
+      </AppModal>
     </div>
   );
 };
