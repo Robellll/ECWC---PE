@@ -1,13 +1,12 @@
 'use client';
 
 import KanbanBoard from '@/components/kanban/KanbanBoard';
+import './ContactLog.css';
 
-const ContactLog = () => {
-  return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <KanbanBoard />
-    </div>
-  );
-};
+const ContactLog = () => (
+  <div className="contact-log-page">
+    <KanbanBoard />
+  </div>
+);
 
 export default ContactLog;

@@ -1,9 +1,10 @@
 import { Suspense } from 'react';
 import ProjectGarage from '@/components/pages/ProjectGarage';
+import AppLoader from '@/components/ui/AppLoader';
 
 export default function ProjectGaragePage() {
   return (
-    <Suspense fallback={<p className="page-subtitle" style={{ padding: '1.5rem' }}>Loading project garage…</p>}>
+    <Suspense fallback={<AppLoader label="Loading project garage…" variant="page" />}>
       <ProjectGarage />
     </Suspense>
   );

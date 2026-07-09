@@ -12,6 +12,7 @@ import EquipmentRegisterModal from '@/components/equipment/EquipmentRegisterModa
 import EquipmentBulkRegisterModal from '@/components/equipment/EquipmentBulkRegisterModal';
 import ProjectSiteLoginModal from '@/components/garage/ProjectSiteLoginModal';
 import SearchBar from '@/components/shared/SearchBar';
+import AppLoader from '@/components/ui/AppLoader';
 import './Equipment.css';
 import './ProjectEquipment.css';
 import './ProjectGarage.css';
@@ -130,7 +131,7 @@ export default function ProjectEquipmentDetail({ projectId }) {
   );
 
   if (loading) {
-    return <div className="equipment-container"><p className="page-subtitle">Loading project equipment…</p></div>;
+    return <AppLoader label="Loading project equipment…" variant="page" className="equipment-container" />;
   }
 
   if (!project) {

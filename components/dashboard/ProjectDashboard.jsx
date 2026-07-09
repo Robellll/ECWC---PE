@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import StatCard from './StatCard';
+import AppLoader from '@/components/ui/AppLoader';
 import { HardHat, CheckCircle, Wrench } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 
@@ -13,7 +14,7 @@ const ProjectDashboard = () => {
   }, []);
 
   if (!data) {
-    return <p style={{ color: 'var(--text-muted)' }}>Loading dashboard…</p>;
+    return <AppLoader label="Loading dashboard…" variant="page" />;
   }
 
   return (

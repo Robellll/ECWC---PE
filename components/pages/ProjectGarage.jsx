@@ -7,6 +7,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
 import ProjectSiteLoginModal from '@/components/garage/ProjectSiteLoginModal';
 import SearchBar from '@/components/shared/SearchBar';
+import AppLoader from '@/components/ui/AppLoader';
 import './ProjectGarage.css';
 
 const ProjectGarage = () => {
@@ -39,11 +40,7 @@ const ProjectGarage = () => {
   }, [loadProjects, isProjPEAdmin, isProjPEMaintenance, router]);
 
   if (loading) {
-    return (
-      <div className="project-garage-container">
-        <p className="page-subtitle">Loading project garages…</p>
-      </div>
-    );
+    return <AppLoader label="Loading project garages…" variant="page" className="project-garage-container" />;
   }
 
   return (

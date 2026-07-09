@@ -10,6 +10,7 @@ import { LIVE_STATUS_LABELS } from '@/lib/equipment';
 import SearchBar from '@/components/shared/SearchBar';
 import ProjectSiteLoginModal from '@/components/garage/ProjectSiteLoginModal';
 import CargoTruckIcon from '@/components/icons/CargoTruckIcon';
+import AppLoader from '@/components/ui/AppLoader';
 import './ProjectEquipment.css';
 import './Garage.css';
 import './ProjectGarage.css';
@@ -105,11 +106,7 @@ export default function ProjectEquipment() {
   };
 
   if (loading) {
-    return (
-      <div className="project-equipment-container">
-        <p className="page-subtitle">Loading equipment…</p>
-      </div>
-    );
+    return <AppLoader label="Loading equipment…" variant="page" className="project-equipment-container" />;
   }
 
   return (

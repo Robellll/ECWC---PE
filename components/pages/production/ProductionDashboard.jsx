@@ -11,6 +11,7 @@ import {
 } from '@/lib/production/dashboardLinks';
 import ProductionShell from '@/components/production/ProductionShell';
 import { SimpleBarChart } from '@/components/production/ProductionDataTable';
+import AppLoader from '@/components/ui/AppLoader';
 import '@/components/production/ProductionShell.css';
 
 export default function ProductionDashboard() {
@@ -27,7 +28,7 @@ export default function ProductionDashboard() {
   if (loading) {
     return (
       <ProductionShell title="Production Dashboard" subtitle="Loading…">
-        <p className="page-subtitle">Loading dashboard…</p>
+        <AppLoader label="Loading dashboard…" variant="inline" />
       </ProductionShell>
     );
   }

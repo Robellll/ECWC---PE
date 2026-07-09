@@ -7,6 +7,7 @@ import { filterStockByHealth, stockHealthFilterLabel } from '@/lib/production/da
 import ProductionShell from '@/components/production/ProductionShell';
 import ProductionFilterBanner from '@/components/production/ProductionFilterBanner';
 import ProductionDataTable, { ProdBadge } from '@/components/production/ProductionDataTable';
+import AppLoader from '@/components/ui/AppLoader';
 import '@/components/production/ProductionShell.css';
 
 export default function ProductionStock() {
@@ -40,7 +41,7 @@ export default function ProductionStock() {
     <ProductionShell title="Stock Balance" subtitle="Calculated from production and dispatch — read only">
       <div className="production-readonly-banner">Stock is calculated automatically: Opening + Production − Dispatch. Manual editing is not permitted.</div>
       <ProductionFilterBanner label={filterLabel} clearHref="/production/stock" />
-      {loading ? <p className="page-subtitle">Loading stock…</p> : (
+      {loading ? <AppLoader label="Loading stock…" variant="inline" /> : (
         <ProductionDataTable columns={columns} rows={displayedRows} searchKeys={['materialName']} canEdit={false} emptyMessage="No stock data yet. Record production to build inventory." />
       )}
     </ProductionShell>

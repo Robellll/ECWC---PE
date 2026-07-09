@@ -13,6 +13,7 @@ import { isRegisteredInRange, isRangeComplete, formatRangeLabel } from '@/lib/da
 import VehicleDetailDrawer from '@/components/garage/VehicleDetailDrawer';
 import ProjectSiteLoginModal from '@/components/garage/ProjectSiteLoginModal';
 import AppModal, { FormField } from '@/components/ui/AppModal';
+import AppLoader from '@/components/ui/AppLoader';
 import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
 import SearchBar from '@/components/shared/SearchBar';
@@ -286,7 +287,7 @@ const ProjectGarageDetail = ({ projectId }) => {
   };
 
   if (loading) {
-    return <div className="garage-container"><p className="page-subtitle">Loading project garage…</p></div>;
+    return <AppLoader label="Loading project garage…" variant="page" className="garage-container" />;
   }
 
   return (

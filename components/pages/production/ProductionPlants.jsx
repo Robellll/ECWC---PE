@@ -12,6 +12,7 @@ import ProductionFilterBanner from '@/components/production/ProductionFilterBann
 import ProductionDataTable, {
   ProdBadge, ProductionModal, FormField,
 } from '@/components/production/ProductionDataTable';
+import AppLoader from '@/components/ui/AppLoader';
 import '@/components/production/ProductionShell.css';
 
 const empty = () => ({
@@ -104,7 +105,7 @@ export default function ProductionPlants() {
     >
       {!isProductionEditor && <div className="production-readonly-banner">View only — managers cannot edit production records.</div>}
       <ProductionFilterBanner label={filterLabel} clearHref="/production/plants" />
-      {loading ? <p className="page-subtitle">Loading…</p> : (
+      {loading ? <AppLoader label="Loading plants…" variant="inline" /> : (
         <ProductionDataTable
           columns={columns}
           rows={displayedRows}

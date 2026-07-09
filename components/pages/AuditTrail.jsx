@@ -6,6 +6,7 @@ import { ScrollText, ChevronRight, RefreshCw } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
 import { AUDIT_MODULE_LABELS } from '@/lib/audit-log-constants';
+import AppLoader from '@/components/ui/AppLoader';
 import './AuditTrail.css';
 
 const MODULE_FILTERS = [
@@ -111,7 +112,7 @@ export default function AuditTrail() {
       <p className="audit-count">{total} event{total === 1 ? '' : 's'}</p>
 
       {loading ? (
-        <p className="page-subtitle">Loading activity…</p>
+        <AppLoader label="Loading activity…" variant="inline" />
       ) : items.length === 0 ? (
         <div className="audit-empty">
           <ScrollText size={36} strokeWidth={1.25} />
@@ -148,8 +149,8 @@ export default function AuditTrail() {
 
       {!loading && items.length < total && (
         <div className="audit-load-more">
-          <button type="button" className="btn-secondary" onClick={handleLoadMore} disabled={loadingMore}>
-            {loadingMore ? 'Loading…' : `Load more (${items.length} of ${total})`}
+          <button type="button" className="btn-secondary audit-load-more-btn" onClick={handleLoadMore} disabled={loadingMore}>
+            {loadingMore ? <AppLoader label="Loading more…" variant="compact" /> : `Load more (${items.length} of ${total})`}
           </button>
         </div>
       )}

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Key, Copy, Check, AlertCircle } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import AppModal, { FormField } from '@/components/ui/AppModal';
+import AppLoader from '@/components/ui/AppLoader';
 import {
   GARAGE_SITE_LOGIN_CONFIG,
   EQUIPMENT_SITE_LOGIN_CONFIG,
@@ -130,7 +131,7 @@ const ProjectSiteLoginModal = ({ project, onClose, onSaved, module = 'garage' })
       large
     >
       {loading ? (
-        <p className="page-subtitle">Loading…</p>
+        <AppLoader label="Loading site login…" variant="inline" />
       ) : (
         <>
           <div className={`pg-site-status ${siteLogin?.enabled ? 'active' : 'inactive'}`}>

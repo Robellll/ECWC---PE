@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import AppLoader from '@/components/ui/AppLoader';
 import './login.css';
 
 export default function LoginPage() {
@@ -21,9 +22,9 @@ export default function LoginPage() {
       password,
       redirect: false,
     });
-    setLoading(false);
     if (result?.error) {
       setError('Invalid email or password');
+      setLoading(false);
       return;
     }
     router.push('/dashboard');
@@ -32,6 +33,11 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
+      {loading && (
+        <div className="login-loading-overlay">
+          <AppLoader label="Signing in…" variant="fullscreen" />
+        </div>
+      )}
       <div className="login-card">
         <img src="/logo.png.png" alt="ECWC Logo" className="login-logo" />
         <h1>ECWC Plant & Equipment</h1>

@@ -1,9 +1,10 @@
 import { Suspense } from 'react';
 import ProjectEquipment from '@/components/pages/ProjectEquipment';
+import AppLoader from '@/components/ui/AppLoader';
 
 export default function EquipmentPage() {
   return (
-    <Suspense fallback={<p className="page-subtitle" style={{ padding: '1.5rem' }}>Loading equipment…</p>}>
+    <Suspense fallback={<AppLoader label="Loading equipment…" variant="page" />}>
       <ProjectEquipment />
     </Suspense>
   );

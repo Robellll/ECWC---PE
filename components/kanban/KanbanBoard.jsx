@@ -1,12 +1,84 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { Edit2, Plus, Trash2, Save, Move } from 'lucide-react';
+import {
+  Edit2, Plus, Trash2, Save, Move, GripVertical, Phone, Mail,
+} from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
 import AppModal, { FormField } from '@/components/ui/AppModal';
+import AppLoader from '@/components/ui/AppLoader';
+import {
+  applyDragReorder,
+  buildDroppableId,
+  parseDroppableId,
+} from '@/components/kanban/kanban-utils';
 import './Kanban.css';
+
+function ManagerCard({
+  manager,
+  isEditMode,
+  canReorder,
+  canEditContacts,
+  dragHandleProps,
+  isDragging,
+  onEdit,
+  onDelete,
+}) {
+  return (
+    <div className={`manager-card ${isDragging ? 'is-dragging' : ''}`}>
+      {isEditMode && canReorder && (
+        <button
+          type="button"
+          className="manager-drag-handle"
+          aria-label="Drag to reorder or move"
+          {...dragHandleProps}
+        >
+          <GripVertical size={14} />
+        </button>
+      )}
+      <div className="manager-avatar" aria-hidden="true">{manager.avatar}</div>
+      <div className="manager-details">
+        <h4>{manager.name}</h4>
+        {manager.phone && (
+          <p className="manager-meta">
+            <Phone size={11} />
+            <span>{manager.phone}</span>
+          </p>
+        )}
+        {manager.email && (
+          <p className="manager-meta">
+            <Mail size={11} />
+            <span>{manager.email}</span>
+          </p>
+        )}
+      </div>
+      {isEditMode && canEditContacts && (
+        <div className="manager-card-actions">
+          <button
+            type="button"
+            className="icon-btn-small"
+            title="Edit contact"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onEdit(manager); }}
+          >
+            <Edit2 size={12} />
+          </button>
+          <button
+            type="button"
+            className="icon-btn-small delete"
+            title="Delete contact"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onDelete(manager.id); }}
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const KanbanBoard = () => {
   const { isContactLogProjectAdmin, canManageContactLogContacts, canReorderContactLog } = usePermissions();
@@ -16,6 +88,7 @@ const KanbanBoard = () => {
   const [managers, setManagers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [dragSaving, setDragSaving] = useState(false);
 
   const loadData = useCallback(async () => {
     const [p, m] = await Promise.all([
@@ -29,37 +102,52 @@ const KanbanBoard = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Modals state
   const [projectModal, setProjectModal] = useState({ isOpen: false, mode: 'add', project: null });
   const [projectName, setProjectName] = useState('');
 
   const [managerModal, setManagerModal] = useState({ isOpen: false, mode: 'add', manager: null });
-  const [managerForm, setManagerForm] = useState({ name: '', phone: '', email: '', role: 'admin', projectId: 'unassigned' });
+  const [managerForm, setManagerForm] = useState({
+    name: '', phone: '', email: '', role: 'admin', projectId: 'unassigned',
+  });
 
-  const onDragEnd = (result) => {
+  const unassignedId = useMemo(
+    () => projects.find((p) => p.isUnassigned)?.id,
+    [projects],
+  );
+
+  const onDragEnd = async (result) => {
     if (!isEditMode || !canReorderContactLog) return;
-    
+
     const { source, destination, draggableId } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    const [destProjectId, destRole] = destination.droppableId.split('-');
-    
-    const dragged = managers.find((m) => m.id === draggableId);
-    if (!dragged) return;
+    const dest = parseDroppableId(destination.droppableId);
+    if (!dest) return;
 
-    apiFetch('/api/project-contacts/reorder', {
-      method: 'PATCH',
-      body: JSON.stringify({
-        id: draggableId,
-        projectId: destProjectId,
-        role: destRole,
-        sortOrder: destination.index,
-      }),
-    }).then(() => loadData());
+    const previous = managers;
+    const optimistic = applyDragReorder(managers, draggableId, source, destination);
+    setManagers(optimistic);
+    setDragSaving(true);
+
+    try {
+      await apiFetch('/api/project-contacts/reorder', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: draggableId,
+          projectId: dest.projectId,
+          role: dest.role,
+          sortOrder: destination.index,
+        }),
+      });
+    } catch {
+      setManagers(previous);
+      await loadData();
+    } finally {
+      setDragSaving(false);
+    }
   };
 
-  // Projects handlers
   const handleOpenAddProject = () => {
     setProjectName('');
     setProjectModal({ isOpen: true, mode: 'add', project: null });
@@ -91,11 +179,10 @@ const KanbanBoard = () => {
     await loadData();
   };
 
-  // Managers handlers
-  const unassignedId = projects.find((p) => p.isUnassigned)?.id;
-
   const handleOpenAddManager = (projectId, role) => {
-    setManagerForm({ name: '', phone: '', email: '', role: role || 'admin', projectId: projectId || unassignedId });
+    setManagerForm({
+      name: '', phone: '', email: '', role: role || 'admin', projectId: projectId || unassignedId,
+    });
     setManagerModal({ isOpen: true, mode: 'add', manager: null });
   };
 
@@ -105,7 +192,7 @@ const KanbanBoard = () => {
       phone: manager.phone || '',
       email: manager.email || '',
       role: manager.role,
-      projectId: manager.projectId
+      projectId: manager.projectId,
     });
     setManagerModal({ isOpen: true, mode: 'edit', manager });
   };
@@ -138,139 +225,230 @@ const KanbanBoard = () => {
     await loadData();
   };
 
+  const editModeLabel = isContactLogProjectAdmin || canManageContactLogContacts
+    ? 'Edit Mode'
+    : 'Reorder Mode';
+
   if (loading) {
-    return <div className="kanban-wrapper"><p>Loading contact log…</p></div>;
+    return (
+      <div className="kanban-wrapper">
+        <AppLoader label="Loading contact log…" variant="page" />
+      </div>
+    );
   }
 
   return (
     <div className="kanban-wrapper">
       <div className="kanban-header">
-        <h1 className="kanban-title">Contact Log Directory</h1>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div className="kanban-header-text">
+          <h1 className="kanban-title">Contact Log Directory</h1>
+          <p className="kanban-subtitle">Project contacts for P&amp;E administration and maintenance teams</p>
+        </div>
+        <div className="kanban-header-actions">
           {isEditMode && isContactLogProjectAdmin && (
-            <button className="btn-primary" onClick={handleOpenAddProject}>
-              <Plus size={16}/> Add Project
+            <button type="button" className="btn-secondary" onClick={handleOpenAddProject}>
+              <Plus size={16} /> Add Project
             </button>
           )}
           {canUseBoard && (
             <button
-              className={`btn-primary ${isEditMode ? 'edit-active' : ''}`}
+              type="button"
+              className={`btn-primary kanban-mode-btn ${isEditMode ? 'is-active' : ''}`}
               onClick={() => setIsEditMode(!isEditMode)}
             >
               {isEditMode ? (
-                <><Save size={16}/> View Mode</>
+                <><Save size={16} /> View Mode</>
               ) : (isContactLogProjectAdmin || canManageContactLogContacts) ? (
-                <><Edit2 size={16}/> Edit Mode</>
+                <><Edit2 size={16} /> {editModeLabel}</>
               ) : (
-                <><Move size={16}/> Reorder Mode</>
+                <><Move size={16} /> Reorder Mode</>
               )}
             </button>
           )}
         </div>
       </div>
 
+      {isEditMode && canReorderContactLog && (
+        <div className="kanban-edit-banner">
+          <Move size={16} />
+          <span>
+            Drag contacts using the <strong>grip handle</strong> to move between projects or columns.
+            {dragSaving ? ' Saving…' : ''}
+          </span>
+        </div>
+      )}
+
       <div className="kanban-board">
         <div className="kanban-columns-header">
           <div className="kanban-col-title project-col">Projects</div>
-          <div className="kanban-col-title">P&E Administration</div>
-          <div className="kanban-col-title">P&E Maintenance</div>
+          <div className="kanban-col-title">P&amp;E Administration</div>
+          <div className="kanban-col-title">P&amp;E Maintenance</div>
         </div>
 
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="kanban-swimlanes">
-            {projects.map(project => (
-              <div className={`swimlane ${project.isUnassigned ? 'unassigned-row' : ''}`} key={project.id}>
-                {/* Project Column */}
+            {projects.map((project) => (
+              <div
+                className={`swimlane ${project.isUnassigned ? 'unassigned-row' : ''}`}
+                key={project.id}
+              >
                 <div className="swimlane-project project-col">
-                  <h3 className="project-name">{project.name}</h3>
+                  <div className="project-name-wrap">
+                    <h3 className="project-name">{project.name}</h3>
+                    {project.isUnassigned && (
+                      <span className="project-badge">Pool</span>
+                    )}
+                  </div>
                   {isEditMode && isContactLogProjectAdmin && !project.isUnassigned && (
                     <div className="project-actions">
-                      <button className="icon-btn-small" title="Edit Project" onClick={() => handleOpenEditProject(project)}><Edit2 size={14}/></button>
-                      <button className="icon-btn-small delete" title="Delete Project" onClick={() => deleteProject(project.id)}><Trash2 size={14}/></button>
+                      <button
+                        type="button"
+                        className="icon-btn-small"
+                        title="Edit project"
+                        onClick={() => handleOpenEditProject(project)}
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-btn-small delete"
+                        title="Delete project"
+                        onClick={() => deleteProject(project.id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   )}
                 </div>
 
-                {/* Admin Column */}
-                <Droppable droppableId={`${project.id}-admin`} isDropDisabled={!isEditMode || !canReorderContactLog}>
-                  {(provided, snapshot) => (
-                    <div 
-                      className={`swimlane-cell ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                    >
-                      {managers.filter(m => m.projectId === project.id && m.role === 'admin').map((manager, index) => (
-                        <Draggable key={manager.id} draggableId={manager.id} index={index} isDragDisabled={!isEditMode || !canReorderContactLog}>
-                          {(provided, snapshot) => (
-                            <div
-                              className={`manager-card ${snapshot.isDragging ? 'is-dragging' : ''}`}
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
+                <Droppable
+                  droppableId={buildDroppableId(project.id, 'admin')}
+                  isDropDisabled={!isEditMode || !canReorderContactLog}
+                >
+                  {(provided, snapshot) => {
+                    const columnManagers = managers.filter(
+                      (m) => m.projectId === project.id && m.role === 'admin',
+                    );
+                    return (
+                      <div
+                        className={`swimlane-cell ${snapshot.isDraggingOver ? 'dragging-over' : ''} ${columnManagers.length === 0 ? 'is-empty' : ''}`}
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                      >
+                        <div className="swimlane-cell-inner">
+                          {columnManagers.map((manager, index) => (
+                            <Draggable
+                              key={manager.id}
+                              draggableId={manager.id}
+                              index={index}
+                              isDragDisabled={!isEditMode || !canReorderContactLog}
                             >
-                              <div className="manager-avatar">{manager.avatar}</div>
-                              <div className="manager-details">
-                                <h4>{manager.name}</h4>
-                                <p>{manager.phone}</p>
-                                <p>{manager.email}</p>
-                              </div>
-                              {isEditMode && canEditContacts && (
-                                <div className="absolute-top-right" style={{ display: 'flex', gap: '4px' }}>
-                                  <button className="icon-btn-small" title="Edit Manager" onClick={() => handleOpenEditManager(manager)}><Edit2 size={12}/></button>
-                                  <button className="icon-btn-small delete" title="Delete Manager" onClick={() => handleDeleteManager(manager.id)}><Trash2 size={12}/></button>
+                              {(dragProvided, dragSnapshot) => (
+                                <div
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  className="manager-card-wrap"
+                                >
+                                  <ManagerCard
+                                    manager={manager}
+                                    isEditMode={isEditMode}
+                                    canReorder={canReorderContactLog}
+                                    canEditContacts={canEditContacts}
+                                    dragHandleProps={dragProvided.dragHandleProps}
+                                    isDragging={dragSnapshot.isDragging}
+                                    onEdit={handleOpenEditManager}
+                                    onDelete={handleDeleteManager}
+                                  />
                                 </div>
                               )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                          {columnManagers.length === 0 && !snapshot.isDraggingOver && (
+                            <div className="cell-empty-hint">
+                              {isEditMode && canReorderContactLog
+                                ? 'Drop administration contacts here'
+                                : 'No contacts'}
                             </div>
                           )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                      {isEditMode && canEditContacts && (
-                        <button className="add-manager-btn" onClick={() => handleOpenAddManager(project.id, 'admin')}><Plus size={14}/> Add Manager</button>
-                      )}
-                    </div>
-                  )}
+                        </div>
+                        {isEditMode && canEditContacts && (
+                          <button
+                            type="button"
+                            className="add-manager-btn"
+                            onClick={() => handleOpenAddManager(project.id, 'admin')}
+                          >
+                            <Plus size={14} /> Add contact
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }}
                 </Droppable>
 
-                {/* Maintenance Column */}
-                <Droppable droppableId={`${project.id}-maintenance`} isDropDisabled={!isEditMode || !canReorderContactLog}>
-                  {(provided, snapshot) => (
-                    <div 
-                      className={`swimlane-cell ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                    >
-                      {managers.filter(m => m.projectId === project.id && m.role === 'maintenance').map((manager, index) => (
-                        <Draggable key={manager.id} draggableId={manager.id} index={index} isDragDisabled={!isEditMode || !canReorderContactLog}>
-                          {(provided, snapshot) => (
-                            <div
-                              className={`manager-card ${snapshot.isDragging ? 'is-dragging' : ''}`}
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
+                <Droppable
+                  droppableId={buildDroppableId(project.id, 'maintenance')}
+                  isDropDisabled={!isEditMode || !canReorderContactLog}
+                >
+                  {(provided, snapshot) => {
+                    const columnManagers = managers.filter(
+                      (m) => m.projectId === project.id && m.role === 'maintenance',
+                    );
+                    return (
+                      <div
+                        className={`swimlane-cell ${snapshot.isDraggingOver ? 'dragging-over' : ''} ${columnManagers.length === 0 ? 'is-empty' : ''}`}
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                      >
+                        <div className="swimlane-cell-inner">
+                          {columnManagers.map((manager, index) => (
+                            <Draggable
+                              key={manager.id}
+                              draggableId={manager.id}
+                              index={index}
+                              isDragDisabled={!isEditMode || !canReorderContactLog}
                             >
-                              <div className="manager-avatar">{manager.avatar}</div>
-                              <div className="manager-details">
-                                <h4>{manager.name}</h4>
-                                <p>{manager.phone}</p>
-                                <p>{manager.email}</p>
-                              </div>
-                              {isEditMode && canEditContacts && (
-                                <div className="absolute-top-right" style={{ display: 'flex', gap: '4px' }}>
-                                  <button className="icon-btn-small" title="Edit Manager" onClick={() => handleOpenEditManager(manager)}><Edit2 size={12}/></button>
-                                  <button className="icon-btn-small delete" title="Delete Manager" onClick={() => handleDeleteManager(manager.id)}><Trash2 size={12}/></button>
+                              {(dragProvided, dragSnapshot) => (
+                                <div
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  className="manager-card-wrap"
+                                >
+                                  <ManagerCard
+                                    manager={manager}
+                                    isEditMode={isEditMode}
+                                    canReorder={canReorderContactLog}
+                                    canEditContacts={canEditContacts}
+                                    dragHandleProps={dragProvided.dragHandleProps}
+                                    isDragging={dragSnapshot.isDragging}
+                                    onEdit={handleOpenEditManager}
+                                    onDelete={handleDeleteManager}
+                                  />
                                 </div>
                               )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                          {columnManagers.length === 0 && !snapshot.isDraggingOver && (
+                            <div className="cell-empty-hint">
+                              {isEditMode && canReorderContactLog
+                                ? 'Drop maintenance contacts here'
+                                : 'No contacts'}
                             </div>
                           )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                      {isEditMode && canEditContacts && (
-                        <button className="add-manager-btn" onClick={() => handleOpenAddManager(project.id, 'maintenance')}><Plus size={14}/> Add Manager</button>
-                      )}
-                    </div>
-                  )}
+                        </div>
+                        {isEditMode && canEditContacts && (
+                          <button
+                            type="button"
+                            className="add-manager-btn"
+                            onClick={() => handleOpenAddManager(project.id, 'maintenance')}
+                          >
+                            <Plus size={14} /> Add contact
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }}
                 </Droppable>
               </div>
             ))}
@@ -299,7 +477,7 @@ const KanbanBoard = () => {
 
       <AppModal
         open={managerModal.isOpen}
-        title={managerModal.mode === 'add' ? 'Add Manager' : 'Edit Manager'}
+        title={managerModal.mode === 'add' ? 'Add Contact' : 'Edit Contact'}
         onClose={() => setManagerModal((prev) => ({ ...prev, isOpen: false }))}
         onSubmit={handleManagerSubmit}
         submitLabel="Save"
@@ -311,7 +489,7 @@ const KanbanBoard = () => {
               type="text"
               value={managerForm.name}
               onChange={(e) => setManagerForm((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="Enter manager's name..."
+              placeholder="Enter contact name..."
               autoFocus
               required
             />

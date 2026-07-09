@@ -14,6 +14,7 @@ import GarageDateRangePicker from '@/components/garage/GarageDateRangePicker';
 import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
 import SearchBar from '@/components/shared/SearchBar';
 import AppModal, { FormField } from '@/components/ui/AppModal';
+import AppLoader from '@/components/ui/AppLoader';
 import './Garage.css';
 
 const PRIORITY_ORDER = { Critical: 0, High: 1, Normal: 2, Low: 3 };
@@ -290,7 +291,7 @@ const CentralGarage = () => {
   };
 
   if (loading) {
-    return <div className="garage-container"><p className="page-subtitle">Loading garage records…</p></div>;
+    return <AppLoader label="Loading garage records…" variant="page" className="garage-container" />;
   }
 
   return (

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
+import AppLoader from '@/components/ui/AppLoader';
 import '@/components/layout/MainLayout.css';
 
 export default function AppLayout({ children }) {
@@ -18,11 +19,7 @@ export default function AppLayout({ children }) {
   }, [status, router]);
 
   if (status === 'loading') {
-    return (
-      <div className="layout-container" style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Loading session…</p>
-      </div>
-    );
+    return <AppLoader label="Starting ECWC Plant & Equipment…" variant="fullscreen" />;
   }
 
   if (status === 'unauthenticated') return null;

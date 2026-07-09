@@ -21,6 +21,7 @@ import InsuranceDetailDrawer from '@/components/insurance/InsuranceDetailDrawer'
 import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
 import SearchBar from '@/components/shared/SearchBar';
 import AppModal, { FormField } from '@/components/ui/AppModal';
+import AppLoader from '@/components/ui/AppLoader';
 import './Insurance.css';
 
 const STAGE_CARD_LABELS = {
@@ -342,7 +343,7 @@ const Insurance = () => {
   const stageClass = (s) => STAGE_CLASS_MAP[s] || 'stage-reported';
 
   if (loading) {
-    return <div className="garage-container insurance-container"><p className="page-subtitle">Loading insurance claims…</p></div>;
+    return <AppLoader label="Loading insurance claims…" variant="page" className="garage-container insurance-container" />;
   }
 
   return (

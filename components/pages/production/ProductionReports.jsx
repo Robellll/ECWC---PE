@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api-client';
 import ProductionShell from '@/components/production/ProductionShell';
 import ProductionDataTable, { exportCsv, printReport } from '@/components/production/ProductionDataTable';
 import { FormField } from '@/components/production/ProductionDataTable';
+import AppLoader from '@/components/ui/AppLoader';
 
 const REPORT_TYPES = [
   { value: 'daily', label: 'Daily Production' },
@@ -105,7 +106,7 @@ export default function ProductionReports() {
           )}
         </div>
       </div>
-      {loading ? <p className="page-subtitle">Loading report…</p> : (
+      {loading ? <AppLoader label="Loading report…" variant="inline" /> : (
         <ProductionDataTable columns={columns} rows={rows.map((r, i) => ({ ...r, id: String(i) }))} searchKeys={columns.map((c) => c.key)} canEdit={false} />
       )}
     </ProductionShell>

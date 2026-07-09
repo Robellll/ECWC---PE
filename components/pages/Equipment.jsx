@@ -11,6 +11,7 @@ import { apiFetch } from '@/lib/api-client';
 import EquipmentDetailDrawer from '@/components/equipment/EquipmentDetailDrawer';
 import SearchBar from '@/components/shared/SearchBar';
 import AppModal from '@/components/ui/AppModal';
+import AppLoader from '@/components/ui/AppLoader';
 import './Equipment.css';
 
 const UNASSIGNED = 'Idle / Unassigned';
@@ -242,7 +243,7 @@ const Equipment = () => {
   };
 
   if (loading) {
-    return <div className="equipment-container"><p className="page-subtitle">Loading equipment…</p></div>;
+    return <AppLoader label="Loading equipment…" variant="page" className="equipment-container" />;
   }
 
   return (
