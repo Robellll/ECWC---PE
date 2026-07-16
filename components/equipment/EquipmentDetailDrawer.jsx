@@ -6,7 +6,8 @@ import {
   AlertTriangle, Play, HelpCircle, Wrench, ZoomIn,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
-import { EQUIPMENT_STATUS_OPTIONS, readEquipmentPhoto } from '@/lib/equipment-form';
+import { EQUIPMENT_STATUS_OPTIONS, readEquipmentPhoto, validateStatusReason } from '@/lib/equipment-form';
+import EquipmentStatusReasonBox from '@/components/equipment/EquipmentStatusReasonBox';
 import DrawerActionBar from '@/components/ui/DrawerActionBar';
 import '@/components/ui/DetailDrawerShell.css';
 import './EquipmentDetailDrawer.css';
@@ -33,6 +34,7 @@ export default function EquipmentDetailDrawer({
     plateSerial: equipment.plateSerial || '',
     model: equipment.model || equipment.name || '',
     status: equipment.status === 'Under Maintenance' ? 'Breakdown' : (equipment.status || 'Operational'),
+    statusReason: equipment.statusReason || '',
     operatorName: equipment.operatorName || '',
     operatorPhone: equipment.operatorPhone || '',
     capacity: equipment.capacity || '',
@@ -51,6 +53,7 @@ export default function EquipmentDetailDrawer({
       plateSerial: equipment.plateSerial || '',
       model: equipment.model || equipment.name || '',
       status: equipment.status === 'Under Maintenance' ? 'Breakdown' : (equipment.status || 'Operational'),
+      statusReason: equipment.statusReason || '',
       operatorName: equipment.operatorName || '',
       operatorPhone: equipment.operatorPhone || '',
       capacity: equipment.capacity || '',
@@ -91,13 +94,28 @@ export default function EquipmentDetailDrawer({
     }
   };
 
+  const patchStatus = (status) => {
+    setForm((f) => ({
+      ...f,
+      status,
+      statusReason: status === f.status ? f.statusReason : '',
+    }));
+    setDirty(true);
+  };
+
   const handleSave = async () => {
     setError('');
+    const reasonError = validateStatusReason(form.status, form.statusReason);
+    if (reasonError) {
+      setError(reasonError);
+      return;
+    }
     try {
       const payload = {
         plateSerial: form.plateSerial.trim(),
         model: form.model.trim(),
         status: form.status,
+        statusReason: form.statusReason.trim(),
         operatorName: form.operatorName.trim(),
         operatorPhone: form.operatorPhone.trim(),
         capacity: form.capacity.trim(),
@@ -217,13 +235,20 @@ export default function EquipmentDetailDrawer({
                         role="radio"
                         aria-checked={form.status === opt.uiValue}
                         className={`pe-status-choice-btn pe-status-${opt.group} ${form.status === opt.uiValue ? 'selected' : ''}`}
-                        onClick={() => patch({ status: opt.uiValue })}
+                        onClick={() => patchStatus(opt.uiValue)}
                       >
                         {opt.label}
                       </button>
                     ))}
                   </div>
                 </div>
+
+                <EquipmentStatusReasonBox
+                  status={form.status}
+                  value={form.statusReason}
+                  onChange={(statusReason) => patch({ statusReason })}
+                  id={`equipmentStatusReason-${equipment.id}`}
+                />
 
                 <div className="drawer-form-row">
                   <div className="drawer-form-group">
@@ -293,6 +318,12 @@ export default function EquipmentDetailDrawer({
                   <span className="attr-label">Status</span>
                   <span className="attr-val">{displayStatusLabel(form.status)}</span>
                 </div>
+                {form.statusReason && (form.status === 'Idle' || form.status === 'Breakdown') && (
+                  <div className="attribute-row pe-status-reason-readonly">
+                    <span className="attr-label">{form.status === 'Idle' ? 'Reason for idle' : 'Reason for down'}</span>
+                    <span className="attr-val">{form.statusReason}</span>
+                  </div>
+                )}
                 <div className="attribute-row">
                   <span className="attr-label">Operator</span>
                   <span className="attr-val">

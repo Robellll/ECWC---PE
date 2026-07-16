@@ -167,6 +167,36 @@
   min-width: 80px;
 }
 
+button.stage-step {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.stage-step.step-selectable {
+  cursor: pointer;
+}
+
+.stage-step.step-selectable:hover .step-icon {
+  background: color-mix(in srgb, var(--accent) 18%, #f3f4f6);
+  color: var(--accent-dark);
+  transform: scale(1.06);
+}
+
+.stage-step.step-selectable:hover .step-label {
+  color: var(--accent-dark);
+}
+
+.stage-select-hint {
+  margin: 0.35rem 0 0.65rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 .step-icon {
   width: 28px;
   height: 28px;

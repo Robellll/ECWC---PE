@@ -8,6 +8,8 @@ import {
   EQUIPMENT_STATUS_OPTIONS,
   isBulkRowComplete,
   isBulkRowPartial,
+  requiresStatusReason,
+  validateStatusReason,
 } from '@/lib/equipment-form';
 
 const INITIAL_ROW_COUNT = 3;
@@ -77,7 +79,14 @@ export default function EquipmentBulkRegisterModal({
   );
 
   const updateCell = (id, field, value) => {
-    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
+    setRows((prev) => prev.map((row) => {
+      if (row.id !== id) return row;
+      const next = { ...row, [field]: value };
+      if (field === 'status' && value !== row.status) {
+        next.statusReason = '';
+      }
+      return next;
+    }));
     setError('');
   };
 
@@ -103,6 +112,7 @@ export default function EquipmentBulkRegisterModal({
         plateSerial: source.plateSerial,
         model: source.model,
         status: source.status,
+        statusReason: source.statusReason,
         operatorName: source.operatorName,
         operatorPhone: source.operatorPhone,
         capacity: source.capacity,
@@ -146,6 +156,14 @@ export default function EquipmentBulkRegisterModal({
       return;
     }
 
+    for (const row of validRows) {
+      const reasonError = validateStatusReason(row.status, row.statusReason);
+      if (reasonError) {
+        setError(`Row ${rows.findIndex((r) => r.id === row.id) + 1}: ${reasonError}`);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       await onSubmit(validRows.map((row) => ({
@@ -153,6 +171,7 @@ export default function EquipmentBulkRegisterModal({
         plateSerial: row.plateSerial.trim(),
         model: row.model.trim(),
         status: row.status,
+        statusReason: row.statusReason.trim(),
         operatorName: row.operatorName.trim(),
         operatorPhone: row.operatorPhone.trim(),
         capacity: row.capacity.trim(),
@@ -214,6 +233,7 @@ export default function EquipmentBulkRegisterModal({
                 <th>Plate / Serial *</th>
                 <th>Vehicle / Equipment Model *</th>
                 <th>Status</th>
+                <th>Idle / Down reason</th>
                 <th>Operator</th>
                 <th>Phone</th>
                 <th>Capacity</th>
@@ -264,6 +284,17 @@ export default function EquipmentBulkRegisterModal({
                           <option key={opt.uiValue} value={opt.uiValue}>{opt.label}</option>
                         ))}
                       </select>
+                    </td>
+                    <td className={requiresStatusReason(row.status) ? 'pe-bulk-reason-required' : ''}>
+                      <input
+                        type="text"
+                        value={row.statusReason}
+                        onChange={(e) => updateCell(row.id, 'statusReason', e.target.value)}
+                        className="grid-input"
+                        placeholder={requiresStatusReason(row.status) ? 'Required for Idle / Down' : '—'}
+                        disabled={!requiresStatusReason(row.status)}
+                        aria-required={requiresStatusReason(row.status)}
+                      />
                     </td>
                     <td>
                       <input

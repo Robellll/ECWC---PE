@@ -11,6 +11,7 @@ import {
   writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
 } from '@/lib/audit-log.js';
 import { z } from 'zod';
+import { validateStatusReason } from '@/lib/equipment-form.js';
 
 const updateSchema = z.object({
   assetNo: z.string().optional(),
@@ -22,6 +23,7 @@ const updateSchema = z.object({
   projectId: z.string().uuid().optional().nullable(),
   capacity: z.string().optional(),
   status: z.string().optional(),
+  statusReason: z.string().optional(),
   operatorName: z.string().optional(),
   operatorPhone: z.string().optional(),
   remarks: z.string().optional(),
@@ -75,6 +77,13 @@ export async function PATCH(request, { params }) {
   const managerNotes = d.remarks ?? d.managerNotes ?? existing.manager_notes;
   const operatorName = d.operatorName !== undefined ? d.operatorName : existing.operator_name;
   const operatorPhone = d.operatorPhone !== undefined ? d.operatorPhone : existing.operator_phone;
+  let statusReason = d.statusReason !== undefined ? d.statusReason.trim() : (existing.status_reason || '');
+  if (status === 'operational') statusReason = '';
+  else {
+    const uiStatus = d.status || (existing.status === 'idle' ? 'Idle' : existing.status === 'operational' ? 'Operational' : 'Breakdown');
+    const reasonError = validateStatusReason(uiStatus, statusReason);
+    if (reasonError) return jsonError(reasonError);
+  }
   let photo = existing.photo;
   if (d.clearPhoto) photo = '';
   else if (d.photo !== undefined) photo = d.photo;
@@ -87,6 +96,7 @@ export async function PATCH(request, { params }) {
       project_id = ${projectId},
       capacity = ${capacity || ''},
       status = ${status}::equipment_status,
+      status_reason = ${statusReason},
       manager_notes = ${managerNotes || ''},
       operator_name = ${operatorName || ''},
       operator_phone = ${operatorPhone || ''},

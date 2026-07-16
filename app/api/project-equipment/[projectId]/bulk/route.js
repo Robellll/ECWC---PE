@@ -9,12 +9,14 @@ import {
   writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
 } from '@/lib/audit-log.js';
 import { z } from 'zod';
+import { validateStatusReason } from '@/lib/equipment-form.js';
 
 const bulkItemSchema = z.object({
   assetNo: z.string().min(1),
   plateSerial: z.string().min(1),
   model: z.string().min(1),
   status: z.string().optional(),
+  statusReason: z.string().optional(),
   operatorName: z.string().optional(),
   operatorPhone: z.string().optional(),
   capacity: z.string().optional(),
@@ -30,11 +32,17 @@ export async function POST(request, { params }) {
   const parsed = z.object({ items: z.array(bulkItemSchema).min(1) }).safeParse(body);
   if (!parsed.success) return jsonError('Invalid input');
 
+  for (const item of parsed.data.items) {
+    const reasonError = validateStatusReason(item.status || 'Operational', item.statusReason);
+    if (reasonError) return jsonError(`${item.assetNo.trim().toUpperCase()}: ${reasonError}`);
+  }
+
   const items = parsed.data.items.map((item) => ({
     assetNo: item.assetNo.trim().toUpperCase(),
     plateSerial: item.plateSerial.trim(),
     model: item.model.trim(),
     status: EQUIPMENT_STATUS_FROM_UI[item.status] || 'operational',
+    statusReason: item.statusReason?.trim() || '',
     operatorName: item.operatorName?.trim() || '',
     operatorPhone: item.operatorPhone?.trim() || '',
     capacity: item.capacity?.trim() || '',
@@ -61,13 +69,14 @@ export async function POST(request, { params }) {
     const rows = await sql`
       INSERT INTO equipment (
         code, name, type, project_id, plate_serial, capacity, status,
-        manager_notes, operator_name, operator_phone, photo,
+        status_reason, manager_notes, operator_name, operator_phone, photo,
         added_by_user_id, status_updated_at
       )
       VALUES (
         ${item.assetNo}, ${item.model}, 'other'::equipment_type,
         ${projectId}, ${item.plateSerial}, ${item.capacity},
         ${item.status}::equipment_status,
+        ${item.status === 'operational' ? '' : item.statusReason},
         ${item.remarks}, ${item.operatorName}, ${item.operatorPhone},
         '',
         ${session.user.id}, NOW()

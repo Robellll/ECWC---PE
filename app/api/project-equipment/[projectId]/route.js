@@ -9,6 +9,7 @@ import {
   writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
 } from '@/lib/audit-log.js';
 import { z } from 'zod';
+import { validateStatusReason } from '@/lib/equipment-form.js';
 
 const createSchema = z.object({
   assetNo: z.string().min(1).optional(),
@@ -17,6 +18,7 @@ const createSchema = z.object({
   model: z.string().min(1).optional(),
   name: z.string().min(1).optional(),
   status: z.string().optional(),
+  statusReason: z.string().optional(),
   operatorName: z.string().optional(),
   operatorPhone: z.string().optional(),
   capacity: z.string().optional(),
@@ -84,17 +86,22 @@ export async function POST(request, { params }) {
 
   const status = EQUIPMENT_STATUS_FROM_UI[d.status] || 'operational';
   const remarks = d.remarks ?? d.managerNotes ?? '';
+  const statusReason = d.statusReason?.trim() || '';
+  const uiStatus = d.status || 'Operational';
+  const reasonError = validateStatusReason(uiStatus, statusReason);
+  if (reasonError) return jsonError(reasonError);
 
   const rows = await sql`
     INSERT INTO equipment (
       code, name, type, project_id, plate_serial, capacity, status,
-      manager_notes, operator_name, operator_phone, photo,
+      status_reason, manager_notes, operator_name, operator_phone, photo,
       added_by_user_id, status_updated_at
     )
     VALUES (
       ${assetNo.toUpperCase()}, ${model}, 'other'::equipment_type,
       ${projectId}, ${d.plateSerial.trim()}, ${d.capacity?.trim() || ''},
       ${status}::equipment_status,
+      ${status === 'operational' ? '' : statusReason},
       ${remarks}, ${d.operatorName?.trim() || ''}, ${d.operatorPhone?.trim() || ''},
       ${d.photo || ''},
       ${session.user.id}, NOW()

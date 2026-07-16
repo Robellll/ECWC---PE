@@ -7,7 +7,9 @@ import {
   emptyEquipmentForm,
   EQUIPMENT_STATUS_OPTIONS,
   readEquipmentPhoto,
+  validateStatusReason,
 } from '@/lib/equipment-form';
+import EquipmentStatusReasonBox from '@/components/equipment/EquipmentStatusReasonBox';
 
 export default function EquipmentRegisterModal({
   open,
@@ -19,7 +21,13 @@ export default function EquipmentRegisterModal({
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const setStatus = (status) => setForm((f) => ({ ...f, status }));
+  const setStatus = (status) => {
+    setForm((f) => ({
+      ...f,
+      status,
+      statusReason: status === f.status ? f.statusReason : '',
+    }));
+  };
 
   const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0];
@@ -36,6 +44,11 @@ export default function EquipmentRegisterModal({
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    const reasonError = validateStatusReason(form.status, form.statusReason);
+    if (reasonError) {
+      setError(reasonError);
+      return;
+    }
     setSaving(true);
     try {
       await onSubmit(form);
@@ -105,6 +118,12 @@ export default function EquipmentRegisterModal({
             ))}
           </div>
         </FormField>
+        <EquipmentStatusReasonBox
+          status={form.status}
+          value={form.statusReason}
+          onChange={(statusReason) => setForm((f) => ({ ...f, statusReason }))}
+          id="equipmentRegisterStatusReason"
+        />
         <FormField label="Operator Name (optional)">
           <input
             value={form.operatorName}

@@ -29,21 +29,49 @@ import DrawerActionBar from '@/components/ui/DrawerActionBar';
 import '@/components/ui/DetailDrawerShell.css';
 import './InsuranceDetailDrawer.css';
 
-const StageStep = memo(({ stage, currentStage, index }) => {
+const StageStep = memo(({ stage, currentStage, index, selectable, onSelect, disabled }) => {
   const stageIndex = INSURANCE_STAGES.indexOf(currentStage);
   const isCompleted = index < stageIndex;
   const isActive = index === stageIndex;
-  return (
-    <div className={`stage-step ${isCompleted ? 'step-done' : ''} ${isActive ? 'step-active' : ''}`}>
-      <div className="step-icon">
-        {isCompleted ? <CheckCircle2 size={16} /> : isActive ? <Circle size={16} /> : <Circle size={16} />}
-      </div>
+  const isTerminal = stage === 'Completed';
+  const canSelect = selectable && !isTerminal && !isActive && !disabled;
+
+  const className = [
+    'stage-step',
+    isCompleted ? 'step-done' : '',
+    isActive ? 'step-active' : '',
+    canSelect ? 'step-selectable' : '',
+    isTerminal ? 'step-terminal' : '',
+  ].filter(Boolean).join(' ');
+
+  const icon = (isCompleted || (isActive && stage === 'Completed'))
+    ? <CheckCircle2 size={16} />
+    : <Circle size={16} />;
+
+  const content = (
+    <>
+      <div className="step-icon">{icon}</div>
       <span className="step-label">{stage}</span>
       {index < INSURANCE_STAGES.length - 1 && (
         <div className={`step-connector ${isCompleted ? 'connector-done' : ''}`} />
       )}
-    </div>
+    </>
   );
+
+  if (canSelect) {
+    return (
+      <button
+        type="button"
+        className={className}
+        onClick={() => onSelect(stage)}
+        title={`Set stage to ${stage}`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
 });
 StageStep.displayName = 'StageStep';
 
@@ -185,36 +213,42 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
     setLogInput('');
   };
 
-  const handleAdvance = async () => {
-    const nextStage = INSURANCE_STAGES[INSURANCE_STAGES.indexOf(displayStage) + 1];
-    if (!nextStage || advancing) return;
+  const handleSetStage = async (targetStage) => {
+    if (!isInsuranceEditor || advancing || editing || claim.status === 'Completed') return;
+    if (targetStage === 'Completed' || targetStage === displayStage) return;
 
-    if (nextStage === 'Under Maintenance' && !isValidRepairLocation(repairLocation, outsourceGarageName)) {
+    if (targetStage === 'Under Maintenance' && !isValidRepairLocation(repairLocation, outsourceGarageName)) {
       setCompleteError('Select Central or Outside, and enter the outside garage name if applicable.');
       return;
     }
 
     setAdvancing(true);
     setCompleteError('');
-    setDisplayStage(nextStage);
+    const previousStage = displayStage;
+    setDisplayStage(targetStage);
     try {
-      const payload = nextStage === 'Under Maintenance'
-        ? {
-          repairLocation,
-          outsourceGarageName: repairLocation === 'outsource' ? outsourceGarageName : '',
-        }
-        : {};
-      const updated = await apiFetch(`/api/insurance-claims/${claim.id}/advance-stage`, {
+      const payload = { stage: targetStage };
+      if (targetStage === 'Under Maintenance') {
+        payload.repairLocation = repairLocation;
+        payload.outsourceGarageName = repairLocation === 'outsource' ? outsourceGarageName : '';
+      }
+      const updated = await apiFetch(`/api/insurance-claims/${claim.id}/set-stage`, {
         method: 'POST',
         body: JSON.stringify(payload),
       });
       onUpdate(updated);
     } catch (err) {
-      setDisplayStage(claim.stage);
-      setCompleteError(err.message || 'Could not advance stage');
+      setDisplayStage(previousStage);
+      setCompleteError(err.message || 'Could not update stage');
     } finally {
       setAdvancing(false);
     }
+  };
+
+  const handleAdvance = async () => {
+    const nextStage = INSURANCE_STAGES[INSURANCE_STAGES.indexOf(displayStage) + 1];
+    if (!nextStage || nextStage === 'Completed') return;
+    await handleSetStage(nextStage);
   };
 
   const saveRepairLocation = async (overrides = {}) => {
@@ -382,11 +416,14 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
 
   const currentStageIdx = INSURANCE_STAGES.indexOf(displayStage);
   const nextStage = INSURANCE_STAGES[currentStageIdx + 1];
-  const canAdvance = isInsuranceEditor && !editing && claim.status !== 'Completed' && currentStageIdx < INSURANCE_STAGES.length - 2 && !advancing;
+  const canSelectStage = isInsuranceEditor && !editing && claim.status !== 'Completed' && !advancing;
+  const canAdvance = canSelectStage && nextStage && nextStage !== 'Completed';
   const advanceNeedsRepair = canAdvance && nextStage === 'Under Maintenance';
   const atUnderMaintenance = displayStage === 'Under Maintenance';
-  const showRepairLocation = atUnderMaintenance || advanceNeedsRepair || Boolean(claim.repairLocation);
-  const canEditRepair = isInsuranceEditor && claim.status !== 'Completed' && (atUnderMaintenance || advanceNeedsRepair);
+  const showRepairLocation = isInsuranceEditor
+    ? claim.status !== 'Completed'
+    : Boolean(claim.repairLocation) || atUnderMaintenance;
+  const canEditRepair = isInsuranceEditor && claim.status !== 'Completed';
   const effectiveRepairLocation = repairLocation || claim.repairLocation;
   const effectiveOutsourceGarage = outsourceGarageName || claim.outsourceGarageName || '';
   const canComplete =
@@ -662,8 +699,8 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
                           disabled={repairSaving}
                         />
                       )}
-                      {advanceNeedsRepair && (
-                        <p className="ins-repair-hint">Required before advancing to Under Maintenance.</p>
+                      {canEditRepair && !atUnderMaintenance && (
+                        <p className="ins-repair-hint">Required before selecting Under Maintenance.</p>
                       )}
                     </>
                   ) : (
@@ -711,9 +748,23 @@ const InsuranceDetailDrawer = ({ claim, onClose, onUpdate, onDelete }) => {
             </div>
             <div className="stage-tracker">
               {INSURANCE_STAGES.map((stage, i) => (
-                <StageStep key={stage} stage={stage} currentStage={displayStage} index={i} />
+                <StageStep
+                  key={stage}
+                  stage={stage}
+                  currentStage={displayStage}
+                  index={i}
+                  selectable={canSelectStage}
+                  disabled={advancing}
+                  onSelect={handleSetStage}
+                />
               ))}
             </div>
+            {canSelectStage && (
+              <p className="stage-select-hint">Click any stage to move forward or go back. Completed stays a separate action.</p>
+            )}
+            {completeError && !atUnderMaintenance && (
+              <p className="completion-error">{completeError}</p>
+            )}
             {canAdvance && (
               <button
                 type="button"

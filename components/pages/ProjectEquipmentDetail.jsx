@@ -104,6 +104,7 @@ export default function ProjectEquipmentDetail({ projectId }) {
         plateSerial: form.plateSerial.trim(),
         model: form.model.trim(),
         status: form.status,
+        statusReason: form.statusReason.trim(),
         operatorName: form.operatorName.trim(),
         operatorPhone: form.operatorPhone.trim(),
         capacity: form.capacity.trim(),
