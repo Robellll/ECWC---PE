@@ -15,6 +15,14 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useDuration } from '@/hooks/useDuration';
 import { apiFetch } from '@/lib/api-client';
 import MaintenanceLocationPicker from '@/components/garage/MaintenanceLocationPicker';
+import TechnicianListEditor from '@/components/garage/TechnicianListEditor';
+import StaffIdLookup from '@/components/garage/StaffIdLookup';
+import {
+  parseAssignedTechnicians,
+  serializeAssignedTechnicians,
+  isValidTechnicianList,
+  normalizeTechnicianList,
+} from '@/lib/garage-technicians';
 import DrawerActionBar from '@/components/ui/DrawerActionBar';
 import '@/components/ui/DetailDrawerShell.css';
 import './VehicleDetailDrawer.css';
@@ -73,7 +81,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
   const [notesDirty, setNotesDirty] = useState(false);
   const [logInput, setLogInput] = useState('');
   const [logFocus, setLogFocus] = useState(false);
-  const [assignedTechnician, setAssignedTechnician] = useState(vehicle.assignedTechnician || '');
+  const [assignedTechnicians, setAssignedTechnicians] = useState(() => normalizeTechnicianList(parseAssignedTechnicians(vehicle.assignedTechnician)));
   const [finalInspectionOfficer, setFinalInspectionOfficer] = useState(vehicle.finalInspectionOfficer || '');
   const [maintenanceType, setMaintenanceType] = useState(vehicle.maintenanceType || '');
   const [maintenanceLocation, setMaintenanceLocation] = useState(vehicle.maintenanceLocation || '');
@@ -87,7 +95,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
   useEffect(() => {
     setNotes(vehicle.managerNotes || '');
     setNotesDirty(false);
-    setAssignedTechnician(vehicle.assignedTechnician || '');
+    setAssignedTechnicians(normalizeTechnicianList(parseAssignedTechnicians(vehicle.assignedTechnician)));
     setFinalInspectionOfficer(vehicle.finalInspectionOfficer || '');
     setMaintenanceType(vehicle.maintenanceType || '');
     setMaintenanceLocation(vehicle.maintenanceLocation || '');
@@ -186,10 +194,10 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
   };
 
   const saveCompletionFields = async (overrides = {}) => {
+    const techList = overrides.assignedTechnicians ?? assignedTechnicians;
     const payload = {
-      assignedTechnician,
-      finalInspectionOfficer,
-      ...overrides,
+      assignedTechnician: serializeAssignedTechnicians(techList),
+      finalInspectionOfficer: overrides.finalInspectionOfficer ?? finalInspectionOfficer,
     };
     const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/completion-fields`, {
       method: 'POST',
@@ -197,6 +205,17 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
     });
     onUpdate(updated);
     return updated;
+  };
+
+  const handleTechniciansChange = (nextList) => {
+    setAssignedTechnicians(nextList);
+  };
+
+  const handleTechniciansBlur = () => {
+    const cleaned = assignedTechnicians.map((s) => s.trim()).filter(Boolean);
+    const normalized = cleaned.length > 0 ? cleaned : [''];
+    setAssignedTechnicians(normalized);
+    saveCompletionFields({ assignedTechnicians: normalized });
   };
 
   const saveMaintenanceType = async (type) => {
@@ -210,10 +229,10 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
 
   const handleToggleComplete = async () => {
     setCompleteError('');
-    if (!isValidStaffName(assignedTechnician) || (!isProject && !isValidStaffName(finalInspectionOfficer))) {
+    if (!isValidTechnicianList(assignedTechnicians) || (!isProject && !isValidStaffName(finalInspectionOfficer))) {
       setCompleteError(isProject
-        ? 'Assigned Mechanic is required before completion.'
-        : 'Assigned Mechanic and Final Inspection Officer are required before completion.');
+        ? 'At least one assigned mechanic is required before completion.'
+        : 'At least one assigned mechanic and the Final Inspection Officer are required before completion.');
       return;
     }
     if (!isValidMaintenanceType(maintenanceType)) {
@@ -224,7 +243,11 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
     try {
       const updated = await apiFetch(`/api/garage-vehicles/${vehicle.id}/toggle-complete`, {
         method: 'POST',
-        body: JSON.stringify({ assignedTechnician, finalInspectionOfficer, maintenanceType }),
+        body: JSON.stringify({
+          assignedTechnician: serializeAssignedTechnicians(assignedTechnicians),
+          finalInspectionOfficer,
+          maintenanceType,
+        }),
       });
       onUpdate(updated);
     } catch (err) {
@@ -251,9 +274,10 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
   const atFinalInspection = !isProject && vehicle.stage === 'Final Inspection' && vehicle.status !== 'Completed';
   const atProjectComplete = isProject && vehicle.stage === 'Under Maintenance' && vehicle.status !== 'Completed';
   const canComplete = isManager && (atFinalInspection || atProjectComplete)
-    && isValidStaffName(assignedTechnician)
+    && isValidTechnicianList(assignedTechnicians)
     && (isProject || isValidStaffName(finalInspectionOfficer))
     && isValidMaintenanceType(maintenanceType);
+  const readonlyTechnicians = parseAssignedTechnicians(vehicle.assignedTechnician);
   const pConfig = PRIORITY_CONFIG[vehicle.priority] || PRIORITY_CONFIG.Normal;
   const workshopStyle = vehicle.workshop ? { '--workshop-color': workshopColor(vehicle.workshop) } : {};
 
@@ -383,17 +407,24 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
                   <span className="accountability-value">{vehicle.siteOperatorName}</span>
                 </div>
               )}
-              <div className="accountability-item">
-                <span className="accountability-label">Assigned Mechanic</span>
+              <div className="accountability-item accountability-item--technicians">
+                <span className="accountability-label">{isProject ? 'Assigned Mechanics' : 'Assigned Mechanics'}</span>
                 {(atFinalInspection || atProjectComplete) && isManager ? (
-                  <input
-                    className="completion-input"
-                    type="text"
-                    value={assignedTechnician}
-                    onChange={(e) => setAssignedTechnician(e.target.value)}
-                    onBlur={saveCompletionFields}
-                    placeholder="Mechanic who performed the work"
+                  <TechnicianListEditor
+                    values={assignedTechnicians}
+                    onChange={handleTechniciansChange}
+                    onBlur={handleTechniciansBlur}
+                    useStaffLookup={!isProject}
+                    idPrefix={`mechanic-${vehicle.id}`}
+                    addLabel="Add technician"
+                    namePlaceholder="Mechanic who performed the work"
                   />
+                ) : readonlyTechnicians.length > 1 ? (
+                  <ul className="technicians-readonly-list">
+                    {readonlyTechnicians.map((name) => (
+                      <li key={name}>{name}</li>
+                    ))}
+                  </ul>
                 ) : (
                   <span className="accountability-value">{vehicle.assignedTechnician || '—'}</span>
                 )}
@@ -402,13 +433,14 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
               <div className="accountability-item">
                 <span className="accountability-label">Final Inspection Officer</span>
                 {atFinalInspection && isManager ? (
-                  <input
-                    className="completion-input"
-                    type="text"
+                  <StaffIdLookup
+                    id={`inspector-${vehicle.id}`}
+                    required
                     value={finalInspectionOfficer}
-                    onChange={(e) => setFinalInspectionOfficer(e.target.value)}
+                    onChange={setFinalInspectionOfficer}
                     onBlur={saveCompletionFields}
-                    placeholder="Officer who verifies work quality"
+                    idPlaceholder="Staff ID"
+                    namePlaceholder="Name fills from ID"
                   />
                 ) : (
                   <span className="accountability-value">{vehicle.finalInspectionOfficer || '—'}</span>
@@ -419,13 +451,13 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
             {atFinalInspection && isManager && !isProject && (
               <p className="completion-hint">
                 <ClipboardCheck size={13} />
-                Enter assigned mechanic and final inspection officer before completing.
+                Enter assigned mechanics{!isProject ? ' and final inspection officer' : ''} before completing.
               </p>
             )}
             {atProjectComplete && isManager && (
               <p className="completion-hint">
                 <ClipboardCheck size={13} />
-                Enter assigned mechanic before completing.
+                Enter assigned mechanics before completing.
               </p>
             )}
           </div>
@@ -462,7 +494,7 @@ const VehicleDetailDrawer = ({ vehicle, onClose, onUpdate, variant = 'central' }
                   className="complete-btn"
                   onClick={handleToggleComplete}
                   disabled={!canComplete || completing}
-                  title={!canComplete ? (isProject ? 'Enter Assigned Mechanic first' : 'Enter Assigned Mechanic and Final Inspection Officer first') : ''}
+                  title={!canComplete ? (isProject ? 'Enter at least one Assigned Mechanic first' : 'Enter Assigned Mechanics and Final Inspection Officer first') : ''}
                 >
                   <CheckCircle2 size={15} />Mark as Completed
                 </button>

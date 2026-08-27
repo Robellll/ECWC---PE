@@ -1,6 +1,7 @@
 import { sql } from '@/lib/db.js';
 import { requireGarageVehicleAccess, jsonOk, jsonError } from '@/lib/api-helpers.js';
 import { mapGarageVehicle } from '@/lib/mappers.js';
+import { resolveStaffDisplay, resolveAssignedTechniciansField } from '@/lib/garage-staff.js';
 import { z } from 'zod';
 
 const updateSchema = z.object({
@@ -24,12 +25,12 @@ export async function POST(request, { params }) {
 
   const assignedTechnician =
     parsed.data.assignedTechnician !== undefined
-      ? parsed.data.assignedTechnician.trim()
-      : existing[0].assigned_technician;
+      ? resolveAssignedTechniciansField(parsed.data.assignedTechnician)
+      : resolveAssignedTechniciansField(existing[0].assigned_technician);
   const finalInspectionOfficer =
     parsed.data.finalInspectionOfficer !== undefined
-      ? parsed.data.finalInspectionOfficer.trim()
-      : existing[0].final_inspection_officer;
+      ? resolveStaffDisplay(parsed.data.finalInspectionOfficer)
+      : resolveStaffDisplay(existing[0].final_inspection_officer);
 
   const rows = await sql`
     UPDATE garage_vehicles SET

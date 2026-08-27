@@ -1,0 +1,62 @@
+.staff-id-lookup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.staff-id-lookup-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 9rem) 1fr;
+  gap: 0.65rem;
+  align-items: end;
+}
+
+.staff-id-lookup-sublabel {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.staff-id-lookup-id input,
+.staff-id-lookup-name input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.staff-id-lookup-name-filled {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-main)) !important;
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border)) !important;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.staff-id-lookup-meta {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--accent-dark, var(--accent));
+  font-weight: 500;
+}
+
+.staff-id-lookup-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #dc2626;
+}
+
+.accountability-item .staff-id-lookup-row {
+  grid-template-columns: minmax(5.5rem, 7rem) 1fr;
+  gap: 0.45rem;
+}
+
+.accountability-item .staff-id-lookup-sublabel {
+  font-size: 0.68rem;
+}
+
+@media (max-width: 520px) {
+  .staff-id-lookup-row {
+    grid-template-columns: 1fr;
+  }
+}

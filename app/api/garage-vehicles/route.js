@@ -2,6 +2,9 @@ import { sql } from '@/lib/db.js';
 import { requireSession, requirePermission, jsonOk, jsonError } from '@/lib/api-helpers.js';
 import { mapGarageVehicle, PRIORITY_FROM_UI } from '@/lib/mappers.js';
 import { GARAGE_WORKSHOPS } from '@/lib/garage.js';
+import { resolveStaffDisplay } from '@/lib/garage-staff.js';
+import { getManpowerDirectory } from '@/lib/manpower.js';
+import { setActiveStaffDirectory } from '@/lib/garage-staff.js';
 import {
   writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
 } from '@/lib/audit-log.js';
@@ -23,6 +26,12 @@ const createSchema = z.object({
 export async function GET() {
   const { error } = await requireSession();
   if (error) return error;
+  try {
+    const directory = await getManpowerDirectory();
+    setActiveStaffDirectory(directory);
+  } catch {
+    // Table may not exist yet before migrate — keep seed directory
+  }
   const vehicles = await sql`
     SELECT * FROM garage_vehicles
     WHERE garage_scope = 'central'
@@ -44,6 +53,7 @@ export async function POST(request) {
   if (!parsed.success) return jsonError('Invalid input');
   const d = parsed.data;
   const priority = PRIORITY_FROM_UI[d.priority] || 'normal';
+  const receivingInspector = resolveStaffDisplay(d.receivingInspector);
   const rows = await sql`
     INSERT INTO garage_vehicles (
       plate, sro_number, model, reported_issue, workshop, receiving_inspector, maintenance_type, priority
@@ -54,14 +64,14 @@ export async function POST(request) {
       ${d.model},
       ${d.reportedIssue},
       ${d.workshop}::garage_workshop,
-      ${d.receivingInspector.trim()},
+      ${receivingInspector},
       ${d.maintenanceType}::garage_maintenance_type,
       ${priority}::priority_level
     )
     RETURNING *
   `;
   const typeLabel = d.maintenanceType === 'major' ? 'Major' : 'Minor';
-  const logText = `Vehicle received at Central Garage. SRO: ${d.sroNumber}. ${typeLabel} maintenance. Assigned to workshop. Receiving inspector: ${d.receivingInspector.trim()}.`;
+  const logText = `Vehicle received at Central Garage. SRO: ${d.sroNumber}. ${typeLabel} maintenance. Assigned to workshop. Receiving inspector: ${receivingInspector}.`;
   await sql`
     INSERT INTO garage_progress_logs (vehicle_id, text) VALUES (${rows[0].id}, ${logText})
   `;

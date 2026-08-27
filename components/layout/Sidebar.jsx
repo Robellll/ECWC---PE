@@ -6,7 +6,7 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Users, Wrench, ShieldAlert, Building2,
   Factory, ChevronDown, Package, FolderKanban, ClipboardList,
-  CalendarDays, Truck, Boxes, FileBarChart, ScrollText,
+  CalendarDays, Truck, Boxes, FileBarChart, ScrollText, HardHat, ChartColumn,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import CargoTruckIcon from '@/components/icons/CargoTruckIcon';
@@ -21,6 +21,11 @@ const primaryNavItems = [
 ];
 
 const contactLogNavItem = { href: '/managers', label: 'Contact Log', icon: Users };
+
+const manpowerSubItems = [
+  { href: '/manpower', label: 'Staff Directory', icon: HardHat },
+  { href: '/manpower/performance', label: 'Performance', icon: ChartColumn },
+];
 
 const productionSubItems = [
   { href: '/production/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -41,9 +46,11 @@ function isNavActive(pathname, href, matchPrefix) {
 
 const Sidebar = () => {
   const pathname = usePathname();
-  const { isCentralGarageFollowup, canViewAuditTrail } = usePermissions();
+  const { isCentralGarageFollowup, canViewAuditTrail, canViewManpower } = usePermissions();
   const productionActive = pathname.startsWith('/production');
+  const manpowerActive = pathname.startsWith('/manpower');
   const [productionOpen, setProductionOpen] = useState(productionActive);
+  const [manpowerOpen, setManpowerOpen] = useState(manpowerActive);
 
   const visiblePrimaryNavItems = isCentralGarageFollowup
     ? primaryNavItems.filter((item) => item.href === '/garage')
@@ -68,6 +75,35 @@ const Sidebar = () => {
 
       <nav className="sidebar-nav">
         {visiblePrimaryNavItems.map(renderNavLink)}
+
+        {canViewManpower && (
+        <div className={`nav-group ${manpowerActive ? 'nav-group-active' : ''}`}>
+          <button
+            type="button"
+            className={`nav-item nav-group-toggle ${manpowerActive ? 'active' : ''}`}
+            onClick={() => setManpowerOpen((v) => !v)}
+            aria-expanded={manpowerOpen}
+          >
+            <HardHat size={20} />
+            <span>Man Power</span>
+            <ChevronDown size={16} className={`nav-chevron ${manpowerOpen ? 'open' : ''}`} />
+          </button>
+          {manpowerOpen && (
+            <div className="nav-subitems">
+              {manpowerSubItems.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={pathname === href ? 'nav-subitem active' : 'nav-subitem'}
+                >
+                  <Icon size={16} />
+                  <span>{label}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+        )}
 
         {!isCentralGarageFollowup && (
         <div className={`nav-group ${productionActive ? 'nav-group-active' : ''}`}>

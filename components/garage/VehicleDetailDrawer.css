@@ -291,6 +291,26 @@
   box-shadow: 0 0 0 3px rgba(117, 200, 38, 0.12);
 }
 
+.accountability-item--technicians {
+  grid-column: 1 / -1;
+}
+
+.accountability-item .staff-id-lookup input {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  color: #1f2937;
+  background: #fff;
+}
+
+.accountability-item .staff-id-lookup input:focus {
+  outline: none;
+  border-color: rgb(117, 200, 38);
+  box-shadow: 0 0 0 3px rgba(117, 200, 38, 0.12);
+}
+
 .maintenance-type-choice {
   display: flex;
   gap: 0.5rem;

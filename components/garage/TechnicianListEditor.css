@@ -1,0 +1,99 @@
+.technician-list-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.technician-list-row {
+  display: grid;
+  grid-template-columns: 1.25rem 1fr auto;
+  gap: 0.45rem;
+  align-items: start;
+}
+
+.technician-list-index {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted, #9ca3af);
+  padding-top: 1.65rem;
+  text-align: center;
+}
+
+.accountability-item .technician-list-index {
+  padding-top: 1.45rem;
+}
+
+.technician-list-field {
+  min-width: 0;
+}
+
+.technician-list-name-input {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  color: #1f2937;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.technician-list-name-input:focus {
+  outline: none;
+  border-color: rgb(117, 200, 38);
+  box-shadow: 0 0 0 3px rgba(117, 200, 38, 0.12);
+}
+
+.technician-list-remove {
+  margin-top: 1.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid color-mix(in srgb, #ef4444 35%, var(--border, #e5e7eb));
+  border-radius: 8px;
+  background: transparent;
+  color: #dc2626;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.technician-list-remove:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.technician-list-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px dashed color-mix(in srgb, var(--accent, #75c826) 45%, var(--border, #d1d5db));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent, #75c826) 6%, transparent);
+  color: var(--accent-dark, rgb(80, 155, 20));
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.technician-list-add:hover {
+  background: color-mix(in srgb, var(--accent, #75c826) 12%, transparent);
+}
+
+.technicians-readonly-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.technicians-readonly-list li {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #1f2937;
+}

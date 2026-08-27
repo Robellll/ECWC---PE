@@ -15,6 +15,7 @@ import FilterSummaryCards from '@/components/shared/FilterSummaryCards';
 import SearchBar from '@/components/shared/SearchBar';
 import AppModal, { FormField } from '@/components/ui/AppModal';
 import AppLoader from '@/components/ui/AppLoader';
+import StaffIdLookup from '@/components/garage/StaffIdLookup';
 import './Garage.css';
 
 const PRIORITY_ORDER = { Critical: 0, High: 1, Normal: 2, Low: 3 };
@@ -484,7 +485,14 @@ const CentralGarage = () => {
             <textarea required value={newVehicle.reportedIssue} onChange={(e) => setNewVehicle({ ...newVehicle, reportedIssue: e.target.value })} rows="3" placeholder="Describe the problem…" />
           </FormField>
           <FormField label="Receiving Inspector" full>
-            <input required type="text" value={newVehicle.receivingInspector} onChange={(e) => setNewVehicle({ ...newVehicle, receivingInspector: e.target.value })} placeholder="Inspector who receives the vehicle" />
+            <StaffIdLookup
+              id="receivingInspector"
+              required
+              value={newVehicle.receivingInspector}
+              onChange={(receivingInspector) => setNewVehicle({ ...newVehicle, receivingInspector })}
+              idPlaceholder="e.g. 01824"
+              namePlaceholder="Name fills from ID"
+            />
           </FormField>
         </div>
       </AppModal>
