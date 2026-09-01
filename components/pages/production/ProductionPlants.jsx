@@ -7,17 +7,19 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
 import { filterPlants, plantFilterLabel } from '@/lib/production/dashboardLinks';
 import { PLANT_TYPES, PLANT_STATUSES } from '@/lib/production/constants';
+import { requiresPlantDownReason } from '@/lib/production/plant-status';
 import ProductionShell from '@/components/production/ProductionShell';
 import ProductionFilterBanner from '@/components/production/ProductionFilterBanner';
 import ProductionDataTable, {
   ProdBadge, ProductionModal, FormField,
 } from '@/components/production/ProductionDataTable';
+import PlantDownReasonSelect from '@/components/production/PlantDownReasonSelect';
 import AppLoader from '@/components/ui/AppLoader';
 import '@/components/production/ProductionShell.css';
 
 const empty = () => ({
   name: '', code: '', plantType: 'aggregate', capacity: 0, unit: 'm³',
-  location: '', assignedProjectId: '', status: 'idle', commissionDate: '', notes: '',
+  projectName: '', status: 'operable', statusReason: '', commissionDate: '', notes: '',
 });
 
 export default function ProductionPlants() {
@@ -25,19 +27,14 @@ export default function ProductionPlants() {
   const searchParams = useSearchParams();
   const statusFilter = searchParams.get('status');
   const [rows, setRows] = useState([]);
-  const [projects, setProjects] = useState([]);
   const [form, setForm] = useState(empty());
   const [editing, setEditing] = useState(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const [plants, projs] = await Promise.all([
-      apiFetch('/api/production/plants'),
-      apiFetch('/api/production/projects'),
-    ]);
+    const plants = await apiFetch('/api/production/plants');
     setRows(plants);
-    setProjects(projs);
     setLoading(false);
   }, []);
 
@@ -48,12 +45,22 @@ export default function ProductionPlants() {
     setEditing(row.id);
     setForm({
       name: row.name, code: row.code, plantType: row.plantType,
-      capacity: row.capacity, unit: row.unit, location: row.location,
-      assignedProjectId: row.assignedProjectId || '', status: row.status,
+      capacity: row.capacity, unit: row.unit,
+      projectName: row.assignedProjectName || '',
+      status: row.status,
+      statusReason: row.statusReason || '',
       commissionDate: row.commissionDate?.slice?.(0, 10) || row.commissionDate || '',
       notes: row.notes,
     });
     setOpen(true);
+  };
+
+  const handleStatusChange = (status) => {
+    setForm((f) => ({
+      ...f,
+      status,
+      statusReason: status === 'down' ? f.statusReason : '',
+    }));
   };
 
   const handleDelete = async (row) => {
@@ -67,8 +74,8 @@ export default function ProductionPlants() {
     const payload = {
       ...form,
       capacity: Number(form.capacity),
-      assignedProjectId: form.assignedProjectId || null,
       commissionDate: form.commissionDate || null,
+      statusReason: requiresPlantDownReason(form.status) ? form.statusReason : '',
     };
     if (editing) {
       await apiFetch(`/api/production/plants/${editing}`, { method: 'PUT', body: JSON.stringify(payload) });
@@ -84,8 +91,7 @@ export default function ProductionPlants() {
     { key: 'name', label: 'Plant Name', sortable: true },
     { key: 'plantTypeLabel', label: 'Type', sortable: true },
     { key: 'capacity', label: 'Capacity', render: (r) => `${r.capacity} ${r.unit}` },
-    { key: 'location', label: 'Location' },
-    { key: 'assignedProjectName', label: 'Project' },
+    { key: 'assignedProjectName', label: 'Project', sortable: true },
     { key: 'status', label: 'Status', render: (r) => <ProdBadge status={r.status} label={r.statusLabel} /> },
   ];
 
@@ -98,7 +104,7 @@ export default function ProductionPlants() {
   return (
     <ProductionShell
       title="Production Plants"
-      subtitle="Manage aggregate, crusher, ready mix, and asphalt plants"
+      subtitle="Register plants and their project — projects are created automatically"
       actions={isProductionEditor && (
         <button type="button" className="btn-primary" onClick={openCreate}><Plus size={16} /> Add Plant</button>
       )}
@@ -109,7 +115,7 @@ export default function ProductionPlants() {
         <ProductionDataTable
           columns={columns}
           rows={displayedRows}
-          searchKeys={['name', 'code', 'location', 'assignedProjectName']}
+          searchKeys={['name', 'code', 'assignedProjectName']}
           canEdit={isProductionEditor}
           onEdit={openEdit}
           onDelete={handleDelete}
@@ -126,25 +132,27 @@ export default function ProductionPlants() {
         <div className="production-form-grid">
           <FormField label="Plant Name"><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></FormField>
           <FormField label="Plant Code"><input required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></FormField>
+          <FormField label="Project Name"><input required value={form.projectName} onChange={(e) => setForm({ ...form, projectName: e.target.value })} placeholder="e.g. GERD Dam" /></FormField>
           <FormField label="Plant Type">
             <select value={form.plantType} onChange={(e) => setForm({ ...form, plantType: e.target.value })}>
               {PLANT_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </FormField>
           <FormField label="Status">
-            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+            <select value={form.status} onChange={(e) => handleStatusChange(e.target.value)}>
               {PLANT_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </FormField>
+          {requiresPlantDownReason(form.status) && (
+            <FormField label="Down Reason" full>
+              <PlantDownReasonSelect
+                value={form.statusReason}
+                onChange={(statusReason) => setForm({ ...form, statusReason })}
+              />
+            </FormField>
+          )}
           <FormField label="Capacity"><input type="number" min="0" step="0.01" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} /></FormField>
           <FormField label="Unit"><input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} /></FormField>
-          <FormField label="Location"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></FormField>
-          <FormField label="Assigned Project">
-            <select value={form.assignedProjectId} onChange={(e) => setForm({ ...form, assignedProjectId: e.target.value })}>
-              <option value="">— None —</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </FormField>
           <FormField label="Commission Date"><input type="date" value={form.commissionDate} onChange={(e) => setForm({ ...form, commissionDate: e.target.value })} /></FormField>
           <FormField label="Notes" full><textarea rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></FormField>
         </div>

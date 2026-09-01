@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import {
   LayoutDashboard, Users, Wrench, ShieldAlert, Building2,
-  Factory, ChevronDown, Package, FolderKanban, ClipboardList,
+  Factory, ChevronDown, Package, ClipboardList,
   CalendarDays, Truck, Boxes, FileBarChart, ScrollText, HardHat, ChartColumn,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -31,7 +31,6 @@ const productionSubItems = [
   { href: '/production/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/production/plants', label: 'Production Plants', icon: Factory },
   { href: '/production/materials', label: 'Materials', icon: Package },
-  { href: '/production/projects', label: 'Projects', icon: FolderKanban },
   { href: '/production/demand', label: 'Demand Management', icon: ClipboardList },
   { href: '/production/daily', label: 'Daily Production', icon: CalendarDays },
   { href: '/production/dispatch', label: 'Dispatch', icon: Truck },

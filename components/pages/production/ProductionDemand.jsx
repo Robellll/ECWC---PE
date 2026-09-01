@@ -23,23 +23,31 @@ export default function ProductionDemand() {
   const statusFilter = searchParams.get('status');
   const [rows, setRows] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [plants, setPlants] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [form, setForm] = useState(empty());
   const [editing, setEditing] = useState(null);
   const [open, setOpen] = useState(false);
 
   const load = useCallback(async () => {
-    const [demand, projs, mats] = await Promise.all([
+    const [demand, projs, pls, mats] = await Promise.all([
       apiFetch('/api/production/demand'),
       apiFetch('/api/production/projects'),
+      apiFetch('/api/production/plants'),
       apiFetch('/api/production/materials'),
     ]);
     setRows(demand);
     setProjects(projs);
+    setPlants(pls);
     setMaterials(mats);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const projectPlants = useMemo(
+    () => (form.projectId ? plants.filter((p) => p.assignedProjectId === form.projectId) : []),
+    [plants, form.projectId],
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -73,7 +81,7 @@ export default function ProductionDemand() {
   const filterLabel = demandFilterLabel(statusFilter);
 
   return (
-    <ProductionShell title="Demand Management" subtitle="Track production requests and fulfillment"
+    <ProductionShell title="Demand Management" subtitle="Track material requests by production project"
       actions={isProductionEditor && <button type="button" className="btn-primary" onClick={() => { setForm(empty()); setEditing(null); setOpen(true); }}><Plus size={16} /> New Demand</button>}
     >
       {!isProductionEditor && <div className="production-readonly-banner">View only — managers cannot edit production records.</div>}
@@ -91,7 +99,19 @@ export default function ProductionDemand() {
         large
       >
         <div className="production-form-grid">
-          <FormField label="Project"><select required value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })}><option value="">Select…</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></FormField>
+          <FormField label="Project">
+            <select required value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>
+              <option value="">Select project…</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </FormField>
+          {form.projectId && projectPlants.length > 0 && (
+            <FormField label="Plants on this project" full>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
+                {projectPlants.map((p) => p.name).join(', ')}
+              </p>
+            </FormField>
+          )}
           <FormField label="Material"><select required value={form.materialId} onChange={(e) => { const m = materials.find((x) => x.id === e.target.value); setForm({ ...form, materialId: e.target.value, unit: m?.unit || form.unit }); }}><option value="">Select…</option>{materials.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></FormField>
           <FormField label="Requested Qty"><input type="number" min="0.01" step="0.01" required value={form.requestedQuantity} onChange={(e) => setForm({ ...form, requestedQuantity: e.target.value })} /></FormField>
           <FormField label="Unit"><input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} /></FormField>

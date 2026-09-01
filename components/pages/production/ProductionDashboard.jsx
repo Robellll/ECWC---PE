@@ -7,12 +7,50 @@ import { apiFetch } from '@/lib/api-client';
 import {
   ALERT_LINKS,
   INTELLIGENCE_KPI_CARDS,
+  PLANT_STATUS_KPI_CARDS,
   PRIMARY_KPI_CARDS,
 } from '@/lib/production/dashboardLinks';
 import ProductionShell from '@/components/production/ProductionShell';
 import { SimpleBarChart } from '@/components/production/ProductionDataTable';
 import AppLoader from '@/components/ui/AppLoader';
 import '@/components/production/ProductionShell.css';
+
+function PlantStatusKpiCard({ card, value, downBreakdown = [] }) {
+  const [hover, setHover] = useState(false);
+  const showTooltip = card.showDownBreakdown && downBreakdown.length > 0;
+
+  const inner = (
+    <>
+      <div className="production-kpi-label">{card.label}</div>
+      <div className="production-kpi-value">{Number(value).toLocaleString()}</div>
+      {showTooltip && (
+        <div className={`production-kpi-tooltip ${hover ? 'visible' : ''}`}>
+          <div className="production-kpi-tooltip-title">Down breakdown</div>
+          {downBreakdown.map((row) => (
+            <div key={row.reason} className="production-kpi-tooltip-row">
+              <span>{row.label}</span>
+              <strong>{row.count}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <Link
+      href={card.href}
+      className={`production-kpi-card production-kpi-card--clickable ${card.showDownBreakdown ? 'production-kpi-card--down' : ''}`}
+      aria-label={`${card.label} — view details`}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+    >
+      {inner}
+    </Link>
+  );
+}
 
 export default function ProductionDashboard() {
   const [data, setData] = useState(null);
@@ -41,13 +79,24 @@ export default function ProductionDashboard() {
     );
   }
 
-  const { kpis, intelligence, charts, alerts } = data;
+  const { kpis, intelligence, charts, alerts, plantStatus } = data;
 
   return (
     <ProductionShell
       title="Production Dashboard"
       subtitle="Real-time overview of plants, production, stock, and demand"
     >
+      <div className="production-kpi-grid production-kpi-grid--plant-status">
+        {PLANT_STATUS_KPI_CARDS.map((card) => (
+          <PlantStatusKpiCard
+            key={card.label}
+            card={card}
+            value={kpis[card.valueKey]}
+            downBreakdown={card.showDownBreakdown ? plantStatus?.downBreakdown : []}
+          />
+        ))}
+      </div>
+
       <div className="production-kpi-grid">
         {PRIMARY_KPI_CARDS.map((card) => (
           <Link
