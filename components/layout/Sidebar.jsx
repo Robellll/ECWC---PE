@@ -54,6 +54,7 @@ const Sidebar = () => {
   const pathname = usePathname();
   const {
     isCentralGarageFollowup, canViewAuditTrail, canViewManpower, canViewHR,
+    isHRCoordinator,
   } = usePermissions();
   const productionActive = pathname.startsWith('/production');
   const manpowerActive = pathname.startsWith('/manpower');
@@ -62,9 +63,14 @@ const Sidebar = () => {
   const [manpowerOpen, setManpowerOpen] = useState(manpowerActive);
   const [hrOpen, setHrOpen] = useState(hrActive);
 
-  const visiblePrimaryNavItems = isCentralGarageFollowup
-    ? primaryNavItems.filter((item) => item.href === '/garage')
-    : primaryNavItems;
+  // HR Coordinators only ever see the HR group, and it stays expanded for them.
+  const hrMenuOpen = isHRCoordinator || hrOpen;
+
+  let visiblePrimaryNavItems = primaryNavItems;
+  if (isHRCoordinator) visiblePrimaryNavItems = [];
+  else if (isCentralGarageFollowup) {
+    visiblePrimaryNavItems = primaryNavItems.filter((item) => item.href === '/garage');
+  }
 
   const renderNavLink = ({ href, label, icon: Icon, matchPrefix }) => (
     <Link
@@ -121,13 +127,13 @@ const Sidebar = () => {
             type="button"
             className={`nav-item nav-group-toggle ${hrActive ? 'active' : ''}`}
             onClick={() => setHrOpen((v) => !v)}
-            aria-expanded={hrOpen}
+            aria-expanded={hrMenuOpen}
           >
             <BriefcaseBusiness size={20} />
             <span>HR</span>
-            <ChevronDown size={16} className={`nav-chevron ${hrOpen ? 'open' : ''}`} />
+            <ChevronDown size={16} className={`nav-chevron ${hrMenuOpen ? 'open' : ''}`} />
           </button>
-          {hrOpen && (
+          {hrMenuOpen && (
             <div className="nav-subitems">
               {hrSubItems.map(({ href, label, icon: Icon }) => (
                 <Link
@@ -144,7 +150,7 @@ const Sidebar = () => {
         </div>
         )}
 
-        {!isCentralGarageFollowup && (
+        {!isCentralGarageFollowup && !isHRCoordinator && (
         <div className={`nav-group ${productionActive ? 'nav-group-active' : ''}`}>
           <button
             type="button"
@@ -173,7 +179,7 @@ const Sidebar = () => {
         </div>
         )}
 
-        {!isCentralGarageFollowup && renderNavLink(contactLogNavItem)}
+        {!isCentralGarageFollowup && !isHRCoordinator && renderNavLink(contactLogNavItem)}
 
         {canViewAuditTrail && renderNavLink({
           href: '/audit-trail',

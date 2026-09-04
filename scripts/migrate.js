@@ -46,6 +46,13 @@ async function seedUsers() {
       role: 'central_garage_followup',
       password: 'follow@321',
     },
+    {
+      id: 'f0000001-0001-4000-8000-00000000000b',
+      email: 'hr@ecwc.gov.et',
+      name: 'HR Coordinator',
+      role: 'hr_coordinator',
+      password: 'hr@321',
+    },
   ];
 
   for (const u of users) {
