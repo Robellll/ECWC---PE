@@ -16,24 +16,23 @@ export default function HrDonutChart({
   const [active, setActive] = useState(null);
 
   const segments = useMemo(() => {
-    const total = data.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-    let offset = 0;
+    const values = data.map((item) => Math.max(0, Number(item.value) || 0));
+    const total = values.reduce((sum, value) => sum + value, 0);
+    const lengths = values.map((value) => (total > 0 ? (value / total) * CIRCUMFERENCE : 0));
+
     return {
       total,
       items: data.map((item, index) => {
-        const value = Number(item.value) || 0;
-        const share = total > 0 ? value / total : 0;
-        const length = share * CIRCUMFERENCE;
-        const segment = {
+        const length = lengths[index];
+        return {
           ...item,
-          value,
-          share,
+          value: values[index],
+          share: total > 0 ? values[index] / total : 0,
           color: colors[index % colors.length],
           dashArray: `${length} ${CIRCUMFERENCE - length}`,
-          dashOffset: -offset,
+          // Each arc starts where all preceding arcs ended.
+          dashOffset: -lengths.slice(0, index).reduce((sum, len) => sum + len, 0),
         };
-        offset += length;
-        return segment;
       }),
     };
   }, [data, colors]);

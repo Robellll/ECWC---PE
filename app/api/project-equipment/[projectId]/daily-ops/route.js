@@ -10,7 +10,7 @@ import {
   validateDailyOpsInput,
 } from '@/lib/equipment-daily-ops.js';
 import {
-  writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
+  writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, actorName,
 } from '@/lib/audit-log.js';
 import { z } from 'zod';
 
