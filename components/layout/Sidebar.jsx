@@ -7,6 +7,7 @@ import {
   LayoutDashboard, Users, Wrench, ShieldAlert, Building2,
   Factory, ChevronDown, Package, ClipboardList,
   CalendarDays, Truck, Boxes, FileBarChart, ScrollText, HardHat, ChartColumn,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import CargoTruckIcon from '@/components/icons/CargoTruckIcon';
@@ -27,6 +28,12 @@ const manpowerSubItems = [
   { href: '/manpower/performance', label: 'Performance', icon: ChartColumn },
 ];
 
+const hrSubItems = [
+  { href: '/hr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/hr/head-office', label: 'Head Office', icon: Building2 },
+  { href: '/hr/projects', label: 'Project Employees', icon: HardHat },
+];
+
 const productionSubItems = [
   { href: '/production/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/production/plants', label: 'Production Plants', icon: Factory },
@@ -45,11 +52,15 @@ function isNavActive(pathname, href, matchPrefix) {
 
 const Sidebar = () => {
   const pathname = usePathname();
-  const { isCentralGarageFollowup, canViewAuditTrail, canViewManpower } = usePermissions();
+  const {
+    isCentralGarageFollowup, canViewAuditTrail, canViewManpower, canViewHR,
+  } = usePermissions();
   const productionActive = pathname.startsWith('/production');
   const manpowerActive = pathname.startsWith('/manpower');
+  const hrActive = pathname.startsWith('/hr');
   const [productionOpen, setProductionOpen] = useState(productionActive);
   const [manpowerOpen, setManpowerOpen] = useState(manpowerActive);
+  const [hrOpen, setHrOpen] = useState(hrActive);
 
   const visiblePrimaryNavItems = isCentralGarageFollowup
     ? primaryNavItems.filter((item) => item.href === '/garage')
@@ -90,6 +101,35 @@ const Sidebar = () => {
           {manpowerOpen && (
             <div className="nav-subitems">
               {manpowerSubItems.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={pathname === href ? 'nav-subitem active' : 'nav-subitem'}
+                >
+                  <Icon size={16} />
+                  <span>{label}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+        )}
+
+        {canViewHR && (
+        <div className={`nav-group ${hrActive ? 'nav-group-active' : ''}`}>
+          <button
+            type="button"
+            className={`nav-item nav-group-toggle ${hrActive ? 'active' : ''}`}
+            onClick={() => setHrOpen((v) => !v)}
+            aria-expanded={hrOpen}
+          >
+            <BriefcaseBusiness size={20} />
+            <span>HR</span>
+            <ChevronDown size={16} className={`nav-chevron ${hrOpen ? 'open' : ''}`} />
+          </button>
+          {hrOpen && (
+            <div className="nav-subitems">
+              {hrSubItems.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
                   href={href}
