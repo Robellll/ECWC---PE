@@ -737,3 +737,85 @@ button.pe-fleet-card {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* === Equipment Reports (Utilization / OID) === */
+.pe-report-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.pe-report-date {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.pe-report-date input {
+  min-width: 10rem;
+}
+
+.pe-report-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pe-report-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 0.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.pe-report-tabs .filter-tab {
+  border: none;
+  background: transparent;
+  padding: 0.4rem 0.95rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.pe-report-tabs .filter-tab:hover {
+  color: var(--text-main);
+  background: var(--bg-main);
+}
+
+.pe-report-tabs .filter-tab.active {
+  background: var(--accent-light, #e8f5d8);
+  color: var(--accent-dark, #3d6b12);
+  font-weight: 600;
+}
+
+.pe-report-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.pe-oid-bar {
+  display: flex;
+  height: 10px;
+  min-width: 88px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg-main);
+}
+
+.pe-oid-seg--op { background: #2f9e44; }
+.pe-oid-seg--idle { background: #e67700; }
+.pe-oid-seg--down { background: #c92a2a; }

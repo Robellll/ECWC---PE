@@ -11,7 +11,12 @@ import {
   writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
 } from '@/lib/audit-log.js';
 import { z } from 'zod';
-import { validateStatusReason } from '@/lib/equipment-form.js';
+import { validateAssetRegisterFields, validateStatusReason } from '@/lib/equipment-form.js';
+import {
+  dbTypeFromEquipmentTypeLabel,
+  parseOptionalNumber,
+  parseOptionalYear,
+} from '@/lib/equipment-register.js';
 
 const updateSchema = z.object({
   assetNo: z.string().optional(),
@@ -19,6 +24,12 @@ const updateSchema = z.object({
   plateSerial: z.string().optional(),
   model: z.string().optional(),
   name: z.string().optional(),
+  category: z.string().optional(),
+  equipmentType: z.string().optional(),
+  make: z.string().optional(),
+  manufacturingYear: z.union([z.string(), z.number()]).optional().nullable(),
+  fuelNorm: z.union([z.string(), z.number()]).optional().nullable(),
+  leaseRateHour: z.union([z.string(), z.number()]).optional().nullable(),
   project: z.string().optional(),
   projectId: z.string().uuid().optional().nullable(),
   capacity: z.string().optional(),
@@ -70,13 +81,62 @@ export async function PATCH(request, { params }) {
   if (!projectId) return jsonError('Equipment must belong to a project', 400);
 
   const code = (d.assetNo || d.code)?.toUpperCase() ?? existing.code;
-  const name = (d.model || d.name) ?? existing.name;
+  const name = (d.name || d.model) ?? existing.name;
+  const category = d.category !== undefined ? d.category.trim() : (existing.category || '');
+  const equipmentType = d.equipmentType !== undefined
+    ? d.equipmentType.trim()
+    : (existing.equipment_type_label || '');
+  const make = d.make !== undefined ? d.make.trim() : (existing.make || '');
+
+  if (d.category !== undefined || d.equipmentType !== undefined || d.make !== undefined || d.name !== undefined || d.model !== undefined) {
+    const formCheck = validateAssetRegisterFields({
+      assetNo: code,
+      name,
+      category: category || 'Others',
+      equipmentType: equipmentType || 'Electrical & Electronics',
+      make: make || '-',
+      manufacturingYear: d.manufacturingYear !== undefined ? d.manufacturingYear : existing.manufacturing_year,
+      fuelNorm: d.fuelNorm !== undefined ? d.fuelNorm : existing.fuel_norm,
+      leaseRateHour: d.leaseRateHour !== undefined ? d.leaseRateHour : existing.lease_rate_hour,
+    });
+    // Only enforce category/type match when both provided/present
+    if (category && equipmentType) {
+      const typeCheck = validateAssetRegisterFields({
+        assetNo: code,
+        name,
+        category,
+        equipmentType,
+        make: make || '-',
+        manufacturingYear: '',
+        fuelNorm: '',
+        leaseRateHour: '',
+      });
+      if (typeCheck && typeCheck.includes('Equipment Type')) return jsonError(typeCheck);
+    }
+    if (formCheck && (formCheck.includes('Year') || formCheck.includes('Fuel') || formCheck.includes('Lease'))) {
+      return jsonError(formCheck);
+    }
+  }
+
   const plateSerial = d.plateSerial !== undefined ? d.plateSerial : existing.plate_serial;
   const status = d.status ? (EQUIPMENT_STATUS_FROM_UI[d.status] || d.status) : existing.status;
   const capacity = d.capacity !== undefined ? d.capacity : existing.capacity;
   const managerNotes = d.remarks ?? d.managerNotes ?? existing.manager_notes;
   const operatorName = d.operatorName !== undefined ? d.operatorName : existing.operator_name;
   const operatorPhone = d.operatorPhone !== undefined ? d.operatorPhone : existing.operator_phone;
+  const year = d.manufacturingYear !== undefined
+    ? parseOptionalYear(d.manufacturingYear)
+    : existing.manufacturing_year;
+  const fuelNorm = d.fuelNorm !== undefined
+    ? parseOptionalNumber(d.fuelNorm)
+    : (existing.fuel_norm != null ? Number(existing.fuel_norm) : null);
+  const leaseRate = d.leaseRateHour !== undefined
+    ? parseOptionalNumber(d.leaseRateHour)
+    : (existing.lease_rate_hour != null ? Number(existing.lease_rate_hour) : null);
+  const dbType = equipmentType
+    ? dbTypeFromEquipmentTypeLabel(equipmentType)
+    : existing.type;
+
   let statusReason = d.statusReason !== undefined ? d.statusReason.trim() : (existing.status_reason || '');
   if (status === 'operational') statusReason = '';
   else {
@@ -92,6 +152,13 @@ export async function PATCH(request, { params }) {
     UPDATE equipment SET
       code = ${code},
       name = ${name},
+      type = ${dbType}::equipment_type,
+      category = ${category || ''},
+      equipment_type_label = ${equipmentType || ''},
+      make = ${make || ''},
+      manufacturing_year = ${year},
+      fuel_norm = ${fuelNorm},
+      lease_rate_hour = ${leaseRate},
       plate_serial = ${plateSerial || ''},
       project_id = ${projectId},
       capacity = ${capacity || ''},

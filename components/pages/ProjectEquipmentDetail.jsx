@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Plus, Trash2, ChevronRight, Table, Key, LayoutGrid,
+  Plus, Trash2, ChevronRight, Table, Key, LayoutGrid, ClipboardList, BarChart3,
 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiFetch } from '@/lib/api-client';
@@ -78,7 +78,10 @@ export default function ProjectEquipmentDetail({ projectId }) {
   const filteredEquipments = useMemo(() => {
     const q = search.trim().toLowerCase();
     return equipments.filter((eq) => {
-      const haystack = [eq.code, eq.name, eq.plateSerial, eq.operatorName, eq.operatorPhone];
+      const haystack = [
+        eq.code, eq.name, eq.category, eq.equipmentType, eq.make,
+        eq.plateSerial, eq.operatorName, eq.operatorPhone,
+      ];
       const matchesSearch = !q || haystack.some((v) => String(v ?? '').toLowerCase().includes(q));
       const matchesStatus = !statusFilter || liveGroup(eq) === statusFilter;
       return matchesSearch && matchesStatus;
@@ -95,14 +98,20 @@ export default function ProjectEquipmentDetail({ projectId }) {
   const handleRegister = async (form) => {
     const assetNo = form.assetNo.trim();
     if (equipments.some((eq) => eq.code.toUpperCase() === assetNo.toUpperCase())) {
-      throw new Error(`Asset No. "${assetNo}" already exists.`);
+      throw new Error(`Asset ID "${assetNo}" already exists.`);
     }
     await apiFetch(`/api/project-equipment/${projectId}`, {
       method: 'POST',
       body: JSON.stringify({
         assetNo,
+        name: form.name.trim(),
+        category: form.category,
+        equipmentType: form.equipmentType,
+        make: form.make.trim(),
+        manufacturingYear: form.manufacturingYear,
+        fuelNorm: form.fuelNorm,
+        leaseRateHour: form.leaseRateHour,
         plateSerial: form.plateSerial.trim(),
-        model: form.model.trim(),
         status: form.status,
         statusReason: form.statusReason.trim(),
         operatorName: form.operatorName.trim(),
@@ -160,6 +169,20 @@ export default function ProjectEquipmentDetail({ projectId }) {
         </div>
 
         <div className="pg-toolbar-right pe-header-actions project-garage-detail-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => router.push(`/equipment/${projectId}/operations`)}
+          >
+            <ClipboardList size={16} /> Daily Ops
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => router.push(`/equipment/${projectId}/reports`)}
+          >
+            <BarChart3 size={16} /> Reports
+          </button>
           {isSuperAdmin && (
             <button type="button" className="btn-secondary" onClick={() => setShowSiteLogin(true)}>
               <Key size={16} /> Site Login
@@ -211,7 +234,7 @@ export default function ProjectEquipmentDetail({ projectId }) {
         <SearchBar
           value={search}
           onChange={setSearch}
-          placeholder="Search asset no., plate, model, or operator…"
+          placeholder="Search asset ID, name, category, type, make…"
         />
       </div>
 
@@ -219,19 +242,20 @@ export default function ProjectEquipmentDetail({ projectId }) {
         <table className="equipment-table">
           <thead>
             <tr>
-              <th>Asset No.</th>
-              <th>Plate / Serial</th>
-              <th>Model</th>
+              <th>Asset ID</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Type</th>
+              <th>Make</th>
+              <th>Year</th>
               <th>Status</th>
-              <th>Operator</th>
-              <th>Updated</th>
               <th aria-label="Open" />
             </tr>
           </thead>
           <tbody>
             {filteredEquipments.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center empty-row">
+                <td colSpan={8} className="text-center empty-row">
                   No equipment found. {canEdit && 'Click "Register Equipment" to add machinery.'}
                 </td>
               </tr>
@@ -243,22 +267,15 @@ export default function ProjectEquipmentDetail({ projectId }) {
                 title="Click to view details"
               >
                 <td className="font-semibold eq-code-cell">{eq.code}</td>
-                <td>{eq.plateSerial || '—'}</td>
                 <td className="font-semibold">{eq.name}</td>
+                <td>{eq.category || '—'}</td>
+                <td>{eq.equipmentType || '—'}</td>
+                <td>{eq.make || '—'}</td>
+                <td className="text-muted">{eq.manufacturingYear || '—'}</td>
                 <td>
                   <span className={`status-badge-indicator ${statusBadgeClass(liveGroup(eq))}`}>
                     {liveLabel(eq)}
                   </span>
-                </td>
-                <td className="text-muted">
-                  {eq.operatorName
-                    ? <>{eq.operatorName}{eq.operatorPhone && <span className="pe-operator-phone"> · {eq.operatorPhone}</span>}</>
-                    : '—'}
-                </td>
-                <td className="text-muted">
-                  {eq.statusUpdatedAt
-                    ? new Date(eq.statusUpdatedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-                    : '—'}
                 </td>
                 <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
                   {canDeleteEquipment && (

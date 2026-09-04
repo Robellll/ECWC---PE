@@ -1,12 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X, Calendar, User, Lock, FileText, Camera,
   AlertTriangle, Play, HelpCircle, Wrench, ZoomIn,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
-import { EQUIPMENT_STATUS_OPTIONS, readEquipmentPhoto, validateStatusReason } from '@/lib/equipment-form';
+import {
+  EQUIPMENT_STATUS_OPTIONS,
+  EQUIPMENT_CATEGORIES,
+  readEquipmentPhoto,
+  validateAssetRegisterFields,
+  validateStatusReason,
+} from '@/lib/equipment-form';
+import { typesForCategory } from '@/lib/equipment-register';
 import EquipmentStatusReasonBox from '@/components/equipment/EquipmentStatusReasonBox';
 import DrawerActionBar from '@/components/ui/DrawerActionBar';
 import '@/components/ui/DetailDrawerShell.css';
@@ -24,15 +31,16 @@ function displayStatusLabel(status) {
   return STATUS_CONFIG[status]?.label || status;
 }
 
-export default function EquipmentDetailDrawer({
-  equipment,
-  onClose,
-  onUpdate,
-  canEdit = false,
-}) {
-  const [form, setForm] = useState({
+function formFromEquipment(equipment) {
+  return {
+    name: equipment.name || equipment.model || '',
+    category: equipment.category || 'Machinery',
+    equipmentType: equipment.equipmentType || 'Dozer',
+    make: equipment.make || '',
+    manufacturingYear: equipment.manufacturingYear ?? '',
+    fuelNorm: equipment.fuelNorm ?? '',
+    leaseRateHour: equipment.leaseRateHour ?? '',
     plateSerial: equipment.plateSerial || '',
-    model: equipment.model || equipment.name || '',
     status: equipment.status === 'Under Maintenance' ? 'Breakdown' : (equipment.status || 'Operational'),
     statusReason: equipment.statusReason || '',
     operatorName: equipment.operatorName || '',
@@ -42,26 +50,28 @@ export default function EquipmentDetailDrawer({
     photo: equipment.photo || '',
     photoPreview: equipment.photo || '',
     clearPhoto: false,
-  });
+  };
+}
+
+export default function EquipmentDetailDrawer({
+  equipment,
+  onClose,
+  onUpdate,
+  canEdit = false,
+}) {
+  const [form, setForm] = useState(() => formFromEquipment(equipment));
   const [dirty, setDirty] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [error, setError] = useState('');
   const drawerRef = useRef(null);
 
+  const typeOptions = useMemo(
+    () => typesForCategory(form.category),
+    [form.category],
+  );
+
   useEffect(() => {
-    setForm({
-      plateSerial: equipment.plateSerial || '',
-      model: equipment.model || equipment.name || '',
-      status: equipment.status === 'Under Maintenance' ? 'Breakdown' : (equipment.status || 'Operational'),
-      statusReason: equipment.statusReason || '',
-      operatorName: equipment.operatorName || '',
-      operatorPhone: equipment.operatorPhone || '',
-      capacity: equipment.capacity || '',
-      remarks: equipment.remarks || equipment.managerNotes || '',
-      photo: equipment.photo || '',
-      photoPreview: equipment.photo || '',
-      clearPhoto: false,
-    });
+    setForm(formFromEquipment(equipment));
     setDirty(false);
     setError('');
   }, [equipment]);
@@ -79,6 +89,16 @@ export default function EquipmentDetailDrawer({
 
   const patch = (updates) => {
     setForm((f) => ({ ...f, ...updates }));
+    setDirty(true);
+  };
+
+  const setCategory = (category) => {
+    const types = typesForCategory(category);
+    setForm((f) => ({
+      ...f,
+      category,
+      equipmentType: types.includes(f.equipmentType) ? f.equipmentType : (types[0] || ''),
+    }));
     setDirty(true);
   };
 
@@ -105,6 +125,14 @@ export default function EquipmentDetailDrawer({
 
   const handleSave = async () => {
     setError('');
+    const formError = validateAssetRegisterFields({
+      assetNo: equipment.code,
+      ...form,
+    });
+    if (formError) {
+      setError(formError);
+      return;
+    }
     const reasonError = validateStatusReason(form.status, form.statusReason);
     if (reasonError) {
       setError(reasonError);
@@ -112,8 +140,14 @@ export default function EquipmentDetailDrawer({
     }
     try {
       const payload = {
+        name: form.name.trim(),
+        category: form.category,
+        equipmentType: form.equipmentType,
+        make: form.make.trim(),
+        manufacturingYear: form.manufacturingYear,
+        fuelNorm: form.fuelNorm,
+        leaseRateHour: form.leaseRateHour,
         plateSerial: form.plateSerial.trim(),
-        model: form.model.trim(),
         status: form.status,
         statusReason: form.statusReason.trim(),
         operatorName: form.operatorName.trim(),
@@ -146,9 +180,11 @@ export default function EquipmentDetailDrawer({
         <div className="drawer-header">
           <div className="drawer-title-group">
             <span className="equipment-code-badge">{equipment.code}</span>
-            <h2 className="drawer-name">{form.model}</h2>
-            {form.plateSerial && (
-              <span className="equipment-plate-pill">{form.plateSerial}</span>
+            <h2 className="drawer-name">{form.name}</h2>
+            {(form.category || form.equipmentType) && (
+              <span className="equipment-plate-pill">
+                {[form.category, form.equipmentType].filter(Boolean).join(' · ')}
+              </span>
             )}
           </div>
           <div className="drawer-header-right">
@@ -173,7 +209,7 @@ export default function EquipmentDetailDrawer({
         <div className="drawer-body">
           {preview ? (
             <button type="button" className="pe-drawer-photo-wrap" onClick={() => setPhotoOpen(true)}>
-              <img src={preview} alt={form.model} className="pe-drawer-photo" />
+              <img src={preview} alt={form.name} className="pe-drawer-photo" />
               <span className="pe-drawer-photo-zoom"><ZoomIn size={16} /> View full size</span>
             </button>
           ) : (
@@ -202,26 +238,57 @@ export default function EquipmentDetailDrawer({
           </div>
 
           <div className="drawer-stats-section">
-            <h3 className="section-title">Equipment Details</h3>
+            <h3 className="section-title">Asset Register</h3>
 
             {canEdit ? (
               <div className="edit-form-fields">
+                <div className="drawer-form-group">
+                  <label>Asset / Equipment Name</label>
+                  <input
+                    value={form.name}
+                    onChange={(e) => patch({ name: e.target.value })}
+                    placeholder="e.g. Bull Dozer (CAT)"
+                  />
+                </div>
+
                 <div className="drawer-form-row">
                   <div className="drawer-form-group">
-                    <label>Plate / Serial No.</label>
-                    <input
-                      value={form.plateSerial}
-                      onChange={(e) => patch({ plateSerial: e.target.value })}
-                      placeholder="e.g. AA-3-12345"
-                    />
+                    <label>Category</label>
+                    <select value={form.category} onChange={(e) => setCategory(e.target.value)}>
+                      {EQUIPMENT_CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="drawer-form-group">
-                    <label>Model</label>
-                    <input
-                      value={form.model}
-                      onChange={(e) => patch({ model: e.target.value })}
-                      placeholder="e.g. CAT 320D Excavator"
-                    />
+                    <label>Equipment Type</label>
+                    <select value={form.equipmentType} onChange={(e) => patch({ equipmentType: e.target.value })}>
+                      {typeOptions.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="drawer-form-row">
+                  <div className="drawer-form-group">
+                    <label>Make</label>
+                    <input value={form.make} onChange={(e) => patch({ make: e.target.value })} placeholder="CAT" />
+                  </div>
+                  <div className="drawer-form-group">
+                    <label>Manufacturing Year</label>
+                    <input type="number" min="1950" max="2100" value={form.manufacturingYear} onChange={(e) => patch({ manufacturingYear: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="drawer-form-row">
+                  <div className="drawer-form-group">
+                    <label>Fuel Norm (L/hr)</label>
+                    <input type="number" min="0" step="0.1" value={form.fuelNorm} onChange={(e) => patch({ fuelNorm: e.target.value })} />
+                  </div>
+                  <div className="drawer-form-group">
+                    <label>Lease Rate/Hour (ETB)</label>
+                    <input type="number" min="0" step="0.01" value={form.leaseRateHour} onChange={(e) => patch({ leaseRateHour: e.target.value })} />
                   </div>
                 </div>
 
@@ -252,30 +319,24 @@ export default function EquipmentDetailDrawer({
 
                 <div className="drawer-form-row">
                   <div className="drawer-form-group">
-                    <label>Operator Name</label>
-                    <input
-                      value={form.operatorName}
-                      onChange={(e) => patch({ operatorName: e.target.value })}
-                      placeholder="e.g. Abebe Kebede"
-                    />
+                    <label>Plate / Serial No.</label>
+                    <input value={form.plateSerial} onChange={(e) => patch({ plateSerial: e.target.value })} />
                   </div>
                   <div className="drawer-form-group">
-                    <label>Operator Phone</label>
-                    <input
-                      value={form.operatorPhone}
-                      onChange={(e) => patch({ operatorPhone: e.target.value })}
-                      placeholder="e.g. 0911 234 567"
-                    />
+                    <label>Capacity / Spec</label>
+                    <input value={form.capacity} onChange={(e) => patch({ capacity: e.target.value })} />
                   </div>
                 </div>
 
-                <div className="drawer-form-group">
-                  <label>Capacity / Specification</label>
-                  <input
-                    value={form.capacity}
-                    onChange={(e) => patch({ capacity: e.target.value })}
-                    placeholder="e.g. 20 ton, 1.2 m³"
-                  />
+                <div className="drawer-form-row">
+                  <div className="drawer-form-group">
+                    <label>Operator Name</label>
+                    <input value={form.operatorName} onChange={(e) => patch({ operatorName: e.target.value })} />
+                  </div>
+                  <div className="drawer-form-group">
+                    <label>Operator Phone</label>
+                    <input value={form.operatorPhone} onChange={(e) => patch({ operatorPhone: e.target.value })} />
+                  </div>
                 </div>
 
                 <div className="drawer-form-group">
@@ -311,8 +372,28 @@ export default function EquipmentDetailDrawer({
                   <span className="attr-val font-semibold">{equipment.project}</span>
                 </div>
                 <div className="attribute-row">
-                  <span className="attr-label">Plate / Serial</span>
-                  <span className="attr-val">{form.plateSerial || '—'}</span>
+                  <span className="attr-label">Category</span>
+                  <span className="attr-val">{form.category || '—'}</span>
+                </div>
+                <div className="attribute-row">
+                  <span className="attr-label">Equipment Type</span>
+                  <span className="attr-val">{form.equipmentType || '—'}</span>
+                </div>
+                <div className="attribute-row">
+                  <span className="attr-label">Make</span>
+                  <span className="attr-val">{form.make || '—'}</span>
+                </div>
+                <div className="attribute-row">
+                  <span className="attr-label">Manufacturing Year</span>
+                  <span className="attr-val">{form.manufacturingYear || '—'}</span>
+                </div>
+                <div className="attribute-row">
+                  <span className="attr-label">Fuel Norm (L/hr)</span>
+                  <span className="attr-val">{form.fuelNorm !== '' && form.fuelNorm != null ? form.fuelNorm : '—'}</span>
+                </div>
+                <div className="attribute-row">
+                  <span className="attr-label">Lease Rate/Hour (ETB)</span>
+                  <span className="attr-val">{form.leaseRateHour !== '' && form.leaseRateHour != null ? Number(form.leaseRateHour).toLocaleString() : '—'}</span>
                 </div>
                 <div className="attribute-row">
                   <span className="attr-label">Status</span>
@@ -325,16 +406,16 @@ export default function EquipmentDetailDrawer({
                   </div>
                 )}
                 <div className="attribute-row">
+                  <span className="attr-label">Plate / Serial</span>
+                  <span className="attr-val">{form.plateSerial || '—'}</span>
+                </div>
+                <div className="attribute-row">
                   <span className="attr-label">Operator</span>
                   <span className="attr-val">
                     {form.operatorName
                       ? <>{form.operatorName}{form.operatorPhone && <> · {form.operatorPhone}</>}</>
                       : '—'}
                   </span>
-                </div>
-                <div className="attribute-row">
-                  <span className="attr-label">Capacity</span>
-                  <span className="attr-val">{form.capacity || '—'}</span>
                 </div>
               </div>
             )}
@@ -370,7 +451,7 @@ export default function EquipmentDetailDrawer({
 
       {photoOpen && preview && (
         <div className="pe-photo-lightbox" onClick={() => setPhotoOpen(false)}>
-          <img src={preview} alt={form.model} />
+          <img src={preview} alt={form.name} />
         </div>
       )}
     </>

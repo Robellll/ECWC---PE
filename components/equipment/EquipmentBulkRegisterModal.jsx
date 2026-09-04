@@ -6,57 +6,16 @@ import AppModal from '@/components/ui/AppModal';
 import {
   emptyBulkEquipmentRow,
   EQUIPMENT_STATUS_OPTIONS,
+  EQUIPMENT_CATEGORIES,
   isBulkRowComplete,
   isBulkRowPartial,
   requiresStatusReason,
   validateStatusReason,
+  validateAssetRegisterFields,
 } from '@/lib/equipment-form';
+import { typesForCategory } from '@/lib/equipment-register';
 
 const INITIAL_ROW_COUNT = 3;
-
-const BULK_ROW_PLACEHOLDERS = [
-  {
-    assetNo: 'ECWC-AST-00421',
-    plateSerial: 'AA-3-12345',
-    model: 'CAT 320D Excavator',
-    operatorName: 'Abebe Kebede',
-    operatorPhone: '0911 234 567',
-    capacity: '20 ton',
-    remarks: 'Sector 12, chainage 4+200',
-  },
-  {
-    assetNo: 'ECWC-AST-00422',
-    plateSerial: 'ABCD1234',
-    model: '100 KVA Generator',
-    operatorName: 'Kebede Alemu',
-    operatorPhone: '0912 345 678',
-    capacity: '4×4 pickup',
-    remarks: 'Site logistics vehicle',
-  },
-  {
-    assetNo: 'ECWC-AST-00423',
-    plateSerial: 'AA-4-11223',
-    model: 'Nissan Dump Truck',
-    operatorName: 'Dawit Tesfaye',
-    operatorPhone: '0913 456 789',
-    capacity: '15 m³',
-    remarks: 'Hauling aggregate',
-  },
-];
-
-const BULK_DEFAULT_PLACEHOLDERS = {
-  assetNo: 'ECWC-AST-00XXX',
-  plateSerial: 'AA-3-12345',
-  model: 'e.g. CAT 320D Excavator',
-  operatorName: 'Operator name',
-  operatorPhone: '0911…',
-  capacity: '20 ton',
-  remarks: 'Site notes',
-};
-
-function bulkPlaceholder(rowIndex, field) {
-  return BULK_ROW_PLACEHOLDERS[rowIndex]?.[field] ?? BULK_DEFAULT_PLACEHOLDERS[field];
-}
 
 function createInitialRows() {
   return Array.from({ length: INITIAL_ROW_COUNT }, () => emptyBulkEquipmentRow());
@@ -85,6 +44,10 @@ export default function EquipmentBulkRegisterModal({
       if (field === 'status' && value !== row.status) {
         next.statusReason = '';
       }
+      if (field === 'category') {
+        const types = typesForCategory(value);
+        next.equipmentType = types.includes(row.equipmentType) ? row.equipmentType : (types[0] || '');
+      }
       return next;
     }));
     setError('');
@@ -109,13 +72,16 @@ export default function EquipmentBulkRegisterModal({
       const source = prev[index];
       const copy = {
         ...emptyBulkEquipmentRow(),
-        plateSerial: source.plateSerial,
-        model: source.model,
+        name: source.name,
+        category: source.category,
+        equipmentType: source.equipmentType,
+        make: source.make,
+        manufacturingYear: source.manufacturingYear,
+        fuelNorm: source.fuelNorm,
+        leaseRateHour: source.leaseRateHour,
         status: source.status,
         statusReason: source.statusReason,
-        operatorName: source.operatorName,
-        operatorPhone: source.operatorPhone,
-        capacity: source.capacity,
+        plateSerial: source.plateSerial,
         remarks: source.remarks,
       };
       const next = [...prev];
@@ -134,7 +100,7 @@ export default function EquipmentBulkRegisterModal({
     setError('');
     const partialRows = rows.filter((row) => isBulkRowPartial(row));
     if (partialRows.length > 0) {
-      setError('Each row must have Asset No., Plate / Serial, and Vehicle / Equipment Model — or leave the row blank.');
+      setError('Each row must have Asset ID, Name, Category, Type, and Make — or leave the row blank.');
       return;
     }
     if (validRows.length === 0) {
@@ -157,6 +123,11 @@ export default function EquipmentBulkRegisterModal({
     }
 
     for (const row of validRows) {
+      const formError = validateAssetRegisterFields(row);
+      if (formError) {
+        setError(`Row ${rows.findIndex((r) => r.id === row.id) + 1}: ${formError}`);
+        return;
+      }
       const reasonError = validateStatusReason(row.status, row.statusReason);
       if (reasonError) {
         setError(`Row ${rows.findIndex((r) => r.id === row.id) + 1}: ${reasonError}`);
@@ -168,13 +139,16 @@ export default function EquipmentBulkRegisterModal({
     try {
       await onSubmit(validRows.map((row) => ({
         assetNo: row.assetNo.trim(),
+        name: row.name.trim(),
+        category: row.category,
+        equipmentType: row.equipmentType,
+        make: row.make.trim(),
+        manufacturingYear: row.manufacturingYear,
+        fuelNorm: row.fuelNorm,
+        leaseRateHour: row.leaseRateHour,
         plateSerial: row.plateSerial.trim(),
-        model: row.model.trim(),
         status: row.status,
         statusReason: row.statusReason.trim(),
-        operatorName: row.operatorName.trim(),
-        operatorPhone: row.operatorPhone.trim(),
-        capacity: row.capacity.trim(),
         remarks: row.remarks.trim(),
       })));
       setRows(createInitialRows());
@@ -190,7 +164,7 @@ export default function EquipmentBulkRegisterModal({
     <AppModal
       open={open}
       title="Bulk Register Equipment"
-      subtitle={<>Add multiple items for <strong>{projectName}</strong>. Asset No., Plate / Serial, and Vehicle / Equipment Model are required.</>}
+      subtitle={<>Add multiple items for <strong>{projectName}</strong>. Asset ID, Name, Category, Type, and Make are required.</>}
       onClose={handleClose}
       xl
       noForm
@@ -229,14 +203,17 @@ export default function EquipmentBulkRegisterModal({
             <thead>
               <tr>
                 <th className="pe-bulk-col-num">#</th>
-                <th>Asset No. *</th>
-                <th>Plate / Serial *</th>
-                <th>Vehicle / Equipment Model *</th>
+                <th>Asset ID *</th>
+                <th>Name *</th>
+                <th>Category *</th>
+                <th>Type *</th>
+                <th>Make *</th>
+                <th>Year</th>
+                <th>Fuel Norm</th>
+                <th>Lease/Hr</th>
                 <th>Status</th>
                 <th>Idle / Down reason</th>
-                <th>Operator</th>
-                <th>Phone</th>
-                <th>Capacity</th>
+                <th>Plate / Serial</th>
                 <th>Remarks</th>
                 <th className="pe-bulk-col-actions" aria-label="Actions" />
               </tr>
@@ -244,42 +221,44 @@ export default function EquipmentBulkRegisterModal({
             <tbody>
               {rows.map((row, index) => {
                 const rowError = isBulkRowPartial(row);
+                const typeOptions = typesForCategory(row.category);
                 return (
                   <tr key={row.id} className={rowError ? 'pe-bulk-row-error' : ''}>
                     <td className="pe-bulk-col-num text-muted">{index + 1}</td>
                     <td>
-                      <input
-                        type="text"
-                        value={row.assetNo}
-                        onChange={(e) => updateCell(row.id, 'assetNo', e.target.value)}
-                        className="grid-input"
-                        placeholder={bulkPlaceholder(index, 'assetNo')}
-                      />
+                      <input type="text" value={row.assetNo} onChange={(e) => updateCell(row.id, 'assetNo', e.target.value)} className="grid-input" placeholder="AA-65266" />
                     </td>
                     <td>
-                      <input
-                        type="text"
-                        value={row.plateSerial}
-                        onChange={(e) => updateCell(row.id, 'plateSerial', e.target.value)}
-                        className="grid-input"
-                        placeholder={bulkPlaceholder(index, 'plateSerial')}
-                      />
+                      <input type="text" value={row.name} onChange={(e) => updateCell(row.id, 'name', e.target.value)} className="grid-input" placeholder="Bull Dozer (CAT)" />
                     </td>
                     <td>
-                      <input
-                        type="text"
-                        value={row.model}
-                        onChange={(e) => updateCell(row.id, 'model', e.target.value)}
-                        className="grid-input"
-                        placeholder={bulkPlaceholder(index, 'model')}
-                      />
+                      <select value={row.category} onChange={(e) => updateCell(row.id, 'category', e.target.value)} className="grid-select">
+                        {EQUIPMENT_CATEGORIES.map((c) => (
+                          <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
                     </td>
                     <td>
-                      <select
-                        value={row.status}
-                        onChange={(e) => updateCell(row.id, 'status', e.target.value)}
-                        className="grid-select"
-                      >
+                      <select value={row.equipmentType} onChange={(e) => updateCell(row.id, 'equipmentType', e.target.value)} className="grid-select">
+                        {typeOptions.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input type="text" value={row.make} onChange={(e) => updateCell(row.id, 'make', e.target.value)} className="grid-input" placeholder="CAT" />
+                    </td>
+                    <td>
+                      <input type="number" value={row.manufacturingYear} onChange={(e) => updateCell(row.id, 'manufacturingYear', e.target.value)} className="grid-input" placeholder="2019" />
+                    </td>
+                    <td>
+                      <input type="number" step="0.1" value={row.fuelNorm} onChange={(e) => updateCell(row.id, 'fuelNorm', e.target.value)} className="grid-input" placeholder="28" />
+                    </td>
+                    <td>
+                      <input type="number" step="0.01" value={row.leaseRateHour} onChange={(e) => updateCell(row.id, 'leaseRateHour', e.target.value)} className="grid-input" placeholder="1800" />
+                    </td>
+                    <td>
+                      <select value={row.status} onChange={(e) => updateCell(row.id, 'status', e.target.value)} className="grid-select">
                         {EQUIPMENT_STATUS_OPTIONS.map((opt) => (
                           <option key={opt.uiValue} value={opt.uiValue}>{opt.label}</option>
                         ))}
@@ -291,63 +270,22 @@ export default function EquipmentBulkRegisterModal({
                         value={row.statusReason}
                         onChange={(e) => updateCell(row.id, 'statusReason', e.target.value)}
                         className="grid-input"
-                        placeholder={requiresStatusReason(row.status) ? 'Required for Idle / Down' : '—'}
+                        placeholder={requiresStatusReason(row.status) ? 'Required' : '—'}
                         disabled={!requiresStatusReason(row.status)}
-                        aria-required={requiresStatusReason(row.status)}
                       />
                     </td>
                     <td>
-                      <input
-                        type="text"
-                        value={row.operatorName}
-                        onChange={(e) => updateCell(row.id, 'operatorName', e.target.value)}
-                        className="grid-input"
-                        placeholder={bulkPlaceholder(index, 'operatorName')}
-                      />
+                      <input type="text" value={row.plateSerial} onChange={(e) => updateCell(row.id, 'plateSerial', e.target.value)} className="grid-input" placeholder="Optional" />
                     </td>
                     <td>
-                      <input
-                        type="text"
-                        value={row.operatorPhone}
-                        onChange={(e) => updateCell(row.id, 'operatorPhone', e.target.value)}
-                        className="grid-input"
-                        placeholder={bulkPlaceholder(index, 'operatorPhone')}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        value={row.capacity}
-                        onChange={(e) => updateCell(row.id, 'capacity', e.target.value)}
-                        className="grid-input"
-                        placeholder={bulkPlaceholder(index, 'capacity')}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        value={row.remarks}
-                        onChange={(e) => updateCell(row.id, 'remarks', e.target.value)}
-                        className="grid-input"
-                        placeholder={bulkPlaceholder(index, 'remarks')}
-                      />
+                      <input type="text" value={row.remarks} onChange={(e) => updateCell(row.id, 'remarks', e.target.value)} className="grid-input" placeholder="Notes" />
                     </td>
                     <td className="pe-bulk-actions-cell">
                       <div className="pe-bulk-actions-inner">
-                        <button
-                          type="button"
-                          className="icon-btn-ghost"
-                          onClick={() => duplicateRow(row.id)}
-                          title="Duplicate row"
-                        >
+                        <button type="button" className="icon-btn-ghost" onClick={() => duplicateRow(row.id)} title="Duplicate row">
                           <Copy size={14} />
                         </button>
-                        <button
-                          type="button"
-                          className="icon-btn-danger"
-                          onClick={() => deleteRow(row.id)}
-                          title="Remove row"
-                        >
+                        <button type="button" className="icon-btn-danger" onClick={() => deleteRow(row.id)} title="Remove row">
                           <Trash2 size={14} />
                         </button>
                       </div>

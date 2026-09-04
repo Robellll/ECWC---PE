@@ -9,17 +9,26 @@ import {
   writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
 } from '@/lib/audit-log.js';
 import { z } from 'zod';
-import { validateStatusReason } from '@/lib/equipment-form.js';
+import { validateAssetRegisterFields, validateStatusReason } from '@/lib/equipment-form.js';
+import {
+  dbTypeFromEquipmentTypeLabel,
+  parseOptionalNumber,
+  parseOptionalYear,
+} from '@/lib/equipment-register.js';
 
 const bulkItemSchema = z.object({
   assetNo: z.string().min(1),
-  plateSerial: z.string().min(1),
-  model: z.string().min(1),
+  name: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
+  category: z.string().min(1),
+  equipmentType: z.string().min(1),
+  make: z.string().min(1),
+  manufacturingYear: z.union([z.string(), z.number()]).optional().nullable(),
+  fuelNorm: z.union([z.string(), z.number()]).optional().nullable(),
+  leaseRateHour: z.union([z.string(), z.number()]).optional().nullable(),
+  plateSerial: z.string().optional(),
   status: z.string().optional(),
   statusReason: z.string().optional(),
-  operatorName: z.string().optional(),
-  operatorPhone: z.string().optional(),
-  capacity: z.string().optional(),
   remarks: z.string().optional(),
 });
 
@@ -33,21 +42,41 @@ export async function POST(request, { params }) {
   if (!parsed.success) return jsonError('Invalid input');
 
   for (const item of parsed.data.items) {
+    const name = (item.name || item.model || '').trim();
+    const formCheck = validateAssetRegisterFields({
+      assetNo: item.assetNo,
+      name,
+      category: item.category,
+      equipmentType: item.equipmentType,
+      make: item.make,
+      manufacturingYear: item.manufacturingYear,
+      fuelNorm: item.fuelNorm,
+      leaseRateHour: item.leaseRateHour,
+    });
+    if (formCheck) return jsonError(`${item.assetNo.trim().toUpperCase()}: ${formCheck}`);
     const reasonError = validateStatusReason(item.status || 'Operational', item.statusReason);
     if (reasonError) return jsonError(`${item.assetNo.trim().toUpperCase()}: ${reasonError}`);
   }
 
-  const items = parsed.data.items.map((item) => ({
-    assetNo: item.assetNo.trim().toUpperCase(),
-    plateSerial: item.plateSerial.trim(),
-    model: item.model.trim(),
-    status: EQUIPMENT_STATUS_FROM_UI[item.status] || 'operational',
-    statusReason: item.statusReason?.trim() || '',
-    operatorName: item.operatorName?.trim() || '',
-    operatorPhone: item.operatorPhone?.trim() || '',
-    capacity: item.capacity?.trim() || '',
-    remarks: item.remarks?.trim() || '',
-  }));
+  const items = parsed.data.items.map((item) => {
+    const name = (item.name || item.model || '').trim();
+    const status = EQUIPMENT_STATUS_FROM_UI[item.status] || 'operational';
+    return {
+      assetNo: item.assetNo.trim().toUpperCase(),
+      name,
+      category: item.category.trim(),
+      equipmentType: item.equipmentType.trim(),
+      make: item.make.trim(),
+      manufacturingYear: parseOptionalYear(item.manufacturingYear),
+      fuelNorm: parseOptionalNumber(item.fuelNorm),
+      leaseRateHour: parseOptionalNumber(item.leaseRateHour),
+      plateSerial: item.plateSerial?.trim() || '',
+      status,
+      statusReason: item.statusReason?.trim() || '',
+      remarks: item.remarks?.trim() || '',
+      dbType: dbTypeFromEquipmentTypeLabel(item.equipmentType),
+    };
+  });
 
   const assetNos = items.map((item) => item.assetNo);
   const internalDupes = assetNos.filter((code, index) => assetNos.indexOf(code) !== index);
@@ -68,16 +97,20 @@ export async function POST(request, { params }) {
   for (const item of items) {
     const rows = await sql`
       INSERT INTO equipment (
-        code, name, type, project_id, plate_serial, capacity, status,
+        code, name, type, category, equipment_type_label, make,
+        manufacturing_year, fuel_norm, lease_rate_hour,
+        project_id, plate_serial, capacity, status,
         status_reason, manager_notes, operator_name, operator_phone, photo,
         added_by_user_id, status_updated_at
       )
       VALUES (
-        ${item.assetNo}, ${item.model}, 'other'::equipment_type,
-        ${projectId}, ${item.plateSerial}, ${item.capacity},
+        ${item.assetNo}, ${item.name}, ${item.dbType}::equipment_type,
+        ${item.category}, ${item.equipmentType}, ${item.make},
+        ${item.manufacturingYear}, ${item.fuelNorm}, ${item.leaseRateHour},
+        ${projectId}, ${item.plateSerial}, '',
         ${item.status}::equipment_status,
         ${item.status === 'operational' ? '' : item.statusReason},
-        ${item.remarks}, ${item.operatorName}, ${item.operatorPhone},
+        ${item.remarks}, '', '',
         '',
         ${session.user.id}, NOW()
       )

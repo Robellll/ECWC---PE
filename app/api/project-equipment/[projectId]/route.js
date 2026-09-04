@@ -9,14 +9,25 @@ import {
   writeAuditLog, AUDIT_ACTION, AUDIT_MODULE, auditHref, actorName,
 } from '@/lib/audit-log.js';
 import { z } from 'zod';
-import { validateStatusReason } from '@/lib/equipment-form.js';
+import { validateAssetRegisterFields, validateStatusReason } from '@/lib/equipment-form.js';
+import {
+  dbTypeFromEquipmentTypeLabel,
+  parseOptionalNumber,
+  parseOptionalYear,
+} from '@/lib/equipment-register.js';
 
 const createSchema = z.object({
   assetNo: z.string().min(1).optional(),
   code: z.string().min(1).optional(),
-  plateSerial: z.string().min(1),
-  model: z.string().min(1).optional(),
   name: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
+  category: z.string().min(1),
+  equipmentType: z.string().min(1),
+  make: z.string().min(1),
+  manufacturingYear: z.union([z.string(), z.number()]).optional().nullable(),
+  fuelNorm: z.union([z.string(), z.number()]).optional().nullable(),
+  leaseRateHour: z.union([z.string(), z.number()]).optional().nullable(),
+  plateSerial: z.string().optional(),
   status: z.string().optional(),
   statusReason: z.string().optional(),
   operatorName: z.string().optional(),
@@ -81,8 +92,18 @@ export async function POST(request, { params }) {
   const d = parsed.data;
 
   const assetNo = (d.assetNo || d.code || '').trim();
-  const model = (d.model || d.name || '').trim();
-  if (!assetNo || !model) return jsonError('Asset No. and model are required');
+  const name = (d.name || d.model || '').trim();
+  const formCheck = validateAssetRegisterFields({
+    assetNo,
+    name,
+    category: d.category,
+    equipmentType: d.equipmentType,
+    make: d.make,
+    manufacturingYear: d.manufacturingYear,
+    fuelNorm: d.fuelNorm,
+    leaseRateHour: d.leaseRateHour,
+  });
+  if (formCheck) return jsonError(formCheck);
 
   const status = EQUIPMENT_STATUS_FROM_UI[d.status] || 'operational';
   const remarks = d.remarks ?? d.managerNotes ?? '';
@@ -91,15 +112,24 @@ export async function POST(request, { params }) {
   const reasonError = validateStatusReason(uiStatus, statusReason);
   if (reasonError) return jsonError(reasonError);
 
+  const dbType = dbTypeFromEquipmentTypeLabel(d.equipmentType);
+  const year = parseOptionalYear(d.manufacturingYear);
+  const fuelNorm = parseOptionalNumber(d.fuelNorm);
+  const leaseRate = parseOptionalNumber(d.leaseRateHour);
+
   const rows = await sql`
     INSERT INTO equipment (
-      code, name, type, project_id, plate_serial, capacity, status,
+      code, name, type, category, equipment_type_label, make,
+      manufacturing_year, fuel_norm, lease_rate_hour,
+      project_id, plate_serial, capacity, status,
       status_reason, manager_notes, operator_name, operator_phone, photo,
       added_by_user_id, status_updated_at
     )
     VALUES (
-      ${assetNo.toUpperCase()}, ${model}, 'other'::equipment_type,
-      ${projectId}, ${d.plateSerial.trim()}, ${d.capacity?.trim() || ''},
+      ${assetNo.toUpperCase()}, ${name}, ${dbType}::equipment_type,
+      ${d.category.trim()}, ${d.equipmentType.trim()}, ${d.make.trim()},
+      ${year}, ${fuelNorm}, ${leaseRate},
+      ${projectId}, ${d.plateSerial?.trim() || ''}, ${d.capacity?.trim() || ''},
       ${status}::equipment_status,
       ${status === 'operational' ? '' : statusReason},
       ${remarks}, ${d.operatorName?.trim() || ''}, ${d.operatorPhone?.trim() || ''},
@@ -123,7 +153,7 @@ export async function POST(request, { params }) {
     entityId: mapped.id,
     projectId,
     href: auditHref.equipment(projectId, mapped.id),
-    summary: `${actorName(session)} registered equipment ${assetNo.toUpperCase()} (${model})`,
+    summary: `${actorName(session)} registered equipment ${assetNo.toUpperCase()} (${name})`,
   });
   return jsonOk(mapped, 201);
 }

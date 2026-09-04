@@ -32,6 +32,9 @@ export async function GET(request) {
             e.code ILIKE ${pattern}
             OR e.name ILIKE ${pattern}
             OR e.plate_serial ILIKE ${pattern}
+            OR e.category ILIKE ${pattern}
+            OR e.equipment_type_label ILIKE ${pattern}
+            OR e.make ILIKE ${pattern}
             OR e.operator_name ILIKE ${pattern}
             OR p.name ILIKE ${pattern}
           )
@@ -47,6 +50,9 @@ export async function GET(request) {
           e.code ILIKE ${pattern}
           OR e.name ILIKE ${pattern}
           OR e.plate_serial ILIKE ${pattern}
+          OR e.category ILIKE ${pattern}
+          OR e.equipment_type_label ILIKE ${pattern}
+          OR e.make ILIKE ${pattern}
           OR e.operator_name ILIKE ${pattern}
           OR p.name ILIKE ${pattern}
         )
